@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Capture Google Token for Backend Testing</title>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .token-display {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 20px 0;
+            word-break: break-all;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .copy-button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        .copy-button:hover { background-color: #0056b3; }
+        .success { background-color: #d4edda; color: #155724; padding: 10px; border-radius: 5px; margin: 10px 0; }
+        .info { background-color: #d1ecf1; color: #0c5460; padding: 10px; border-radius: 5px; margin: 10px 0; }
+        pre { background-color: #f8f9fa; padding: 15px; border-radius: 5px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔑 Capture Google Token for Backend Testing</h1>
+        
+        <div class="info">
+            <strong>Purpose:</strong> This page helps you capture a Google ID token to send to your backend developer for testing.
+        </div>
+
+        <h2>Step 1: Sign in with Google</h2>
+        <p>Click the button below to sign in with your Google account:</p>
+        
+        <div id="g_id_onload"
+             data-client_id="1014126568369-l9moqqlcka953cjui6fqt7alf0o0qkli.apps.googleusercontent.com"
+             data-callback="handleCredentialResponse">
+        </div>
+        
+        <div class="g_id_signin" data-type="standard" data-theme="outline" data-size="large"></div>
+
+        <div id="token-section" style="display: none;">
+            <h2>Step 2: Copy the Token</h2>
+            <p>Your Google ID token has been captured. Copy it and send it to your backend developer:</p>
+            
+            <div class="token-display" id="token-display">
+                <!-- Token will be displayed here -->
+            </div>
+            
+            <button class="copy-button" onclick="copyToken()">📋 Copy Token</button>
+            <button class="copy-button" onclick="copyTestRequest()">📋 Copy Test Request</button>
+            <button class="copy-button" onclick="clearToken()">🗑️ Clear</button>
+
+            <h3>User Information:</h3>
+            <div id="user-info"></div>
+
+            <h3>Test Request for Backend Developer:</h3>
+            <pre id="test-request"></pre>
+        </div>
+
+        <div id="success-message" class="success" style="display: none;">
+            ✅ Token captured successfully! You can now copy it and send it to your backend developer.
+        </div>
+    </div>
+
+    <script>
+        let capturedToken = null;
+        let capturedPayload = null;
+
+        function handleCredentialResponse(response) {
+            console.log("Google OAuth Response:", response);
+            
+            try {
+                // Parse the JWT token
+                const base64Url = response.credential.split('.')[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                const jsonPayload = decodeURIComponent(
+                    atob(base64)
+                        .split('')
+                        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+                        .join('')
+                );
+                const payload = JSON.parse(jsonPayload);
+                
+                // Store the token and payload
+                capturedToken = response.credential;
+                capturedPayload = payload;
+                
+                // Display the token
+                document.getElementById('token-display').textContent = capturedToken;
+                
+                // Display user info
+                document.getElementById('user-info').innerHTML = `
+                    <p><strong>Email:</strong> ${payload.email}</p>
+                    <p><strong>Name:</strong> ${payload.name}</p>
+                    <p><strong>Google ID:</strong> ${payload.sub}</p>
+                    <p><strong>Email Verified:</strong> ${payload.email_verified}</p>
+                    <p><strong>Picture:</strong> <img src="${payload.picture}" style="width: 50px; height: 50px; border-radius: 50%;" alt="Profile Picture"></p>
+                `;
+                
+                // Generate test request
+                const testRequest = {
+                    method: "POST",
+                    url: "http://localhost:3001/api/auth/google",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: {
+                        id_token: capturedToken
+                    }
+                };
+                
+                document.getElementById('test-request').textContent = JSON.stringify(testRequest, null, 2);
+                
+                // Show the token section
+                document.getElementById('token-section').style.display = 'block';
+                document.getElementById('success-message').style.display = 'block';
+                
+                console.log("Token captured for backend testing:", capturedToken);
+                
+            } catch (error) {
+                console.error("Error parsing JWT:", error);
+                alert("Error parsing JWT token: " + error.message);
+            }
+        }
+        
+        function copyToken() {
+            if (capturedToken) {
+                navigator.clipboard.writeText(capturedToken).then(() => {
+                    alert("Token copied to clipboard!");
+                }).catch(err => {
+                    console.error('Failed to copy token: ', err);
+                    // Fallback for older browsers
+                    const textArea = document.createElement('textarea');
+                    textArea.value = capturedToken;
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    alert("Token copied to clipboard!");
+                });
+            }
+        }
+        
+        function copyTestRequest() {
+            const testRequest = {
+                method: "POST",
+                url: "http://localhost:3001/api/auth/google",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: {
+                    id_token: capturedToken
+                }
+            };
+            
+            const requestText = JSON.stringify(testRequest, null, 2);
+            
+            navigator.clipboard.writeText(requestText).then(() => {
+                alert("Test request copied to clipboard!");
+            }).catch(err => {
+                console.error('Failed to copy test request: ', err);
+                const textArea = document.createElement('textarea');
+                textArea.value = requestText;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                alert("Test request copied to clipboard!");
+            });
+        }
+        
+        function clearToken() {
+            capturedToken = null;
+            capturedPayload = null;
+            document.getElementById('token-section').style.display = 'none';
+            document.getElementById('success-message').style.display = 'none';
+            document.getElementById('token-display').textContent = '';
+            document.getElementById('user-info').innerHTML = '';
+            document.getElementById('test-request').textContent = '';
+        }
+        
+        // Initialize Google OAuth
+        window.onload = function() {
+            google.accounts.id.initialize({
+                client_id: "1014126568369-l9moqqlcka953cjui6fqt7alf0o0qkli.apps.googleusercontent.com",
+                callback: handleCredentialResponse
+            });
+        };
+    </script>
+</body>
+</html>
