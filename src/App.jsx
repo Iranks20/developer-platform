@@ -5,6 +5,7 @@ import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
 import DashboardPage from './pages/DashboardPage'
 import AppDashboardPage from './pages/AppDashboardPage'
+import DocsPage from './pages/DocsPage'
 import LoadingSpinner from './components/LoadingSpinner'
 
 const ProtectedRoute = ({ children }) => {
@@ -51,6 +52,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <AppDashboardPage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/docs" 
+        element={
+          <ProtectedRoute>
+            <DocsPage />
           </ProtectedRoute>
         } 
       />

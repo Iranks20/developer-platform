@@ -136,7 +136,9 @@ const AppDashboardPage = () => {
             animate={{ opacity: 1, x: 0 }}
             className="p-6 lg:p-8"
           >
-            {renderContent()}
+            <div className="fade-in">
+              {renderContent()}
+            </div>
           </motion.div>
         </div>
       </div>

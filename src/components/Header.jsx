@@ -28,29 +28,29 @@ const Header = ({ user, onLogout }) => {
   ]
 
   return (
-    <header className="bg-white shadow-sm border-b border-gray-200">
+    <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
-            <Link to="/dashboard" className="flex items-center space-x-3">
-              <div className="h-8 w-8 bg-primary-600 rounded-lg flex items-center justify-center">
-                <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <Link to="/dashboard" className="flex items-center space-x-3 group">
+              <div className="h-10 w-10 gradient-primary rounded-card flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow duration-200">
+                <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
                 </svg>
               </div>
-              <span className="text-xl font-bold text-gray-900">Developer Portal</span>
+              <span className="text-2xl font-bold text-gray-800 font-heading">Developer Portal</span>
             </Link>
           </div>
 
-          <nav className="hidden md:flex space-x-8">
+          <nav className="hidden md:flex space-x-2">
             {navigation.map((item) => (
               <Link
                 key={item.name}
                 to={item.href}
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                className={`px-4 py-2 rounded-default text-sm font-medium transition-all duration-200 ${
                   item.current
-                    ? 'text-primary-600 bg-primary-50'
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                    ? 'text-primary-600 bg-primary-50 border border-primary-200'
+                    : 'text-gray-600 hover:text-primary-600 hover:bg-primary-50'
                 }`}
               >
                 {item.name}
@@ -59,14 +59,14 @@ const Header = ({ user, onLogout }) => {
           </nav>
 
           {/* Notifications and Mobile menu */}
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-3">
             {/* Notifications */}
-            <button className="hidden md:block p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors relative">
+            <button className="hidden md:block p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-default transition-all duration-200 relative group">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5-5 5-5h-5m-6 0H4l5 5-5 5h5" />
               </svg>
               {/* Notification badge */}
-              <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full"></span>
+              <span className="absolute -top-1 -right-1 h-3 w-3 bg-error-500 rounded-full animate-pulse"></span>
             </button>
 
             {/* Mobile menu button */}
@@ -85,10 +85,10 @@ const Header = ({ user, onLogout }) => {
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setIsProfileOpen(!isProfileOpen)}
-              className="flex items-center space-x-2 text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+              className="flex items-center space-x-3 text-sm rounded-default focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 p-2 hover:bg-gray-50 transition-all duration-200"
             >
               <img
-                className="h-8 w-8 rounded-full"
+                className="h-8 w-8 rounded-full border-2 border-gray-200"
                 src={user?.avatar}
                 alt={user?.name}
               />
@@ -105,7 +105,7 @@ const Header = ({ user, onLogout }) => {
                 initial={{ opacity: 0, scale: 0.95, y: -10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                className="absolute right-0 mt-2 w-64 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-200"
+                className="absolute right-0 mt-2 w-64 bg-white rounded-card shadow-lg py-2 z-50 border border-gray-200"
               >
                 <div className="px-4 py-3 border-b border-gray-100">
                   <p className="text-sm font-medium text-gray-900">{user?.name}</p>

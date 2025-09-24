@@ -13,48 +13,43 @@ const Sidebar = ({ app, activeTab, onTabChange }) => {
 
   return (
     <div className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 lg:z-50">
-      <div className="flex flex-col flex-grow bg-white border-r border-gray-200 pt-5 pb-4 overflow-y-auto">
-        <div className="flex items-center flex-shrink-0 px-6 mb-8">
-          <Link to="/dashboard" className="flex items-center space-x-3">
-            <div className="h-8 w-8 bg-primary-600 rounded-lg flex items-center justify-center">
-              <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-              </svg>
-            </div>
-            <span className="text-xl font-bold text-gray-900">Portal</span>
-          </Link>
-        </div>
+      <div className="flex flex-col flex-grow bg-white border-r border-gray-200 pt-6 pb-4 overflow-y-auto">
 
         <div className="px-4 mb-6">
-          <div className="bg-gray-50 rounded-lg p-4">
-            <h3 className="text-sm font-medium text-gray-900 mb-1">{app.name}</h3>
-            <p className="text-xs text-gray-500 font-mono">{app.clientId}</p>
-            <div className="mt-2">
-              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                app.status === 'live' 
-                  ? 'bg-green-100 text-green-800' 
-                  : 'bg-yellow-100 text-yellow-800'
-              }`}>
-                {app.status.toUpperCase()}
-              </span>
+          <div className="card p-4">
+            <div className="flex items-center space-x-3 mb-3">
+              <div className="w-8 h-8 gradient-primary rounded-lg flex items-center justify-center shadow-sm">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-gray-800 font-heading">{app.name}</h3>
+                <span className={`status-badge ${
+                  app.status === 'live' ? 'status-live' : 'status-test'
+                }`}>
+                  {app.status.toUpperCase()}
+                </span>
+              </div>
             </div>
+            <p className="text-xs text-gray-500 font-mono bg-gray-100 px-2 py-1 rounded truncate" title={app.clientId}>
+              {app.clientId}
+            </p>
           </div>
         </div>
 
-        <nav className="flex-1 px-2 space-y-1">
+        <nav className="flex-1 px-2 space-y-2">
           {navigation.map((item) => (
             <button
               key={item.id}
               onClick={() => onTabChange(item.id)}
-              className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors w-full text-left ${
-                activeTab === item.id
-                  ? 'bg-primary-100 text-primary-900'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+              className={`nav-link w-full text-left ${
+                activeTab === item.id ? 'active' : ''
               }`}
             >
               <svg
                 className={`mr-3 h-5 w-5 flex-shrink-0 ${
-                  activeTab === item.id ? 'text-primary-500' : 'text-gray-400 group-hover:text-gray-500'
+                  activeTab === item.id ? 'text-primary-600' : 'text-gray-400 group-hover:text-primary-600'
                 }`}
                 fill="none"
                 stroke="currentColor"
@@ -72,12 +67,13 @@ const Sidebar = ({ app, activeTab, onTabChange }) => {
             to="/dashboard"
             className="flex-shrink-0 w-full group block"
           >
-            <div className="flex items-center">
-              <div className="ml-3">
-                <p className="text-sm font-medium text-gray-700 group-hover:text-gray-900">
-                  ← Back to Applications
-                </p>
-              </div>
+            <div className="flex items-center space-x-3 p-2 rounded-default hover:bg-gray-50 transition-colors duration-200">
+              <svg className="w-5 h-5 text-gray-400 group-hover:text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              <p className="text-sm font-medium text-gray-700 group-hover:text-primary-600">
+                Back to Applications
+              </p>
             </div>
           </Link>
         </div>
