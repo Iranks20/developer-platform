@@ -5,7 +5,8 @@ const CreateAppModal = ({ isOpen, onClose, onSubmit, isLoading }) => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    status: 'test'
+    status: 'test',
+    redirectUrl: ''
   })
 
   const handleSubmit = (e) => {
@@ -14,11 +15,11 @@ const CreateAppModal = ({ isOpen, onClose, onSubmit, isLoading }) => {
     
     console.log('Submitting form data:', formData)
     onSubmit(formData)
-    setFormData({ name: '', description: '', status: 'test' })
+    setFormData({ name: '', description: '', status: 'test', redirectUrl: '' })
   }
 
   const handleClose = () => {
-    setFormData({ name: '', description: '', status: 'test' })
+    setFormData({ name: '', description: '', status: 'test', redirectUrl: '' })
     onClose()
   }
 
@@ -57,6 +58,23 @@ const CreateAppModal = ({ isOpen, onClose, onSubmit, isLoading }) => {
             className="input-field resize-none"
             placeholder="Describe what your application does..."
           />
+        </div>
+
+        <div>
+          <label htmlFor="redirectUrl" className="block text-sm font-medium text-gray-700 mb-2">
+            Redirect URL (Optional)
+          </label>
+          <input
+            id="redirectUrl"
+            type="url"
+            value={formData.redirectUrl}
+            onChange={(e) => setFormData({ ...formData, redirectUrl: e.target.value })}
+            className="input-field"
+            placeholder="https://your-app.com/callback"
+          />
+          <p className="mt-1 text-sm text-gray-500">
+            The URL where users will be redirected after authentication.
+          </p>
         </div>
 
         <div>

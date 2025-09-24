@@ -1,4 +1,4 @@
-const API_BASE = '/api'
+const API_BASE = 'https://openapi.qa.gwiza.co'
 
 // Fallback in-memory store for when MSW is not working
 let fallbackApps = [
@@ -66,18 +66,31 @@ const generateClientId = () => `app_${Math.random().toString(36).substr(2, 16)}`
 const generateClientSecret = (status) => `sk_${status}_${Math.random().toString(36).substr(2, 20)}`
 
 export const appsApi = {
-  getAll: async () => {
+  getAll: async (userId) => {
     try {
-      console.log('Attempting to fetch apps from API...')
-      const response = await fetch(`${API_BASE}/apps`)
+      console.log('Attempting to fetch apps from API for user:', userId)
+      const response = await fetch(`${API_BASE}/auth/oauth2/client/byuser/${userId}`)
       if (!response.ok) {
         throw new Error('Failed to fetch applications')
       }
       const data = await response.json()
       console.log('API response:', data)
-      return data
+      
+      if (data.success && data.data) {
+        return data.data.map(app => ({
+          id: app.client_id,
+          name: app.client_name,
+          description: app.client_description || 'No description provided',
+          status: app.public ? 'live' : 'test',
+          createdAt: new Date().toISOString(),
+          clientId: app.client_id,
+          clientSecret: 'hidden'
+        }))
+      }
+      
+      return []
     } catch (error) {
-      console.log('MSW not available, using fallback data:', error.message)
+      console.log('API not available, using fallback data:', error.message)
       console.log('Fallback apps:', fallbackApps)
       return fallbackApps
     }
@@ -102,25 +115,47 @@ export const appsApi = {
 
   create: async (appData) => {
     try {
-      const response = await fetch(`${API_BASE}/apps`, {
+      const response = await fetch(`${API_BASE}/auth/oauth2/client`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(appData),
+        body: JSON.stringify({
+          user_account_id: appData.userAccountId,
+          client_name: appData.name,
+          client_description: appData.description,
+          redirect_url: appData.redirectUrl || ''
+        }),
       })
       if (!response.ok) {
         throw new Error('Failed to create application')
       }
-      return response.json()
+      const data = await response.json()
+      console.log('Create app response:', data)
+      
+      if (data.success && data.data) {
+        return {
+          id: data.data.client_id,
+          name: data.data.client_name,
+          description: appData.description,
+          status: 'test',
+          createdAt: new Date().toISOString(),
+          clientId: data.data.client_id,
+          clientSecret: data.data.client_secret
+        }
+      }
+      
+      throw new Error('Invalid response format')
     } catch (error) {
-      console.log('MSW not available, using fallback creation')
+      console.log('API not available, using fallback creation')
       const newApp = {
         id: generateId(),
-        ...appData,
+        name: appData.name,
+        description: appData.description,
+        status: 'test',
         createdAt: new Date().toISOString(),
         clientId: generateClientId(),
-        clientSecret: generateClientSecret(appData.status),
+        clientSecret: generateClientSecret('test'),
         products: []
       }
       fallbackApps.push(newApp)

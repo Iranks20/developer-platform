@@ -7,18 +7,22 @@ import { useAuth } from '../context/AuthContext'
 import Header from '../components/Header'
 import AppCard from '../components/AppCard'
 import CreateAppModal from '../components/CreateAppModal'
+import ClientSecretModal from '../components/ClientSecretModal'
 import LoadingSpinner from '../components/LoadingSpinner'
 
 const DashboardPage = () => {
   const [activeTab, setActiveTab] = useState('live')
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [showClientSecretModal, setShowClientSecretModal] = useState(false)
+  const [newAppData, setNewAppData] = useState(null)
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
   const { data: apps = [], isLoading, error } = useQuery({
-    queryKey: ['apps'],
-    queryFn: appsApi.getAll,
+    queryKey: ['apps', user?.id],
+    queryFn: () => appsApi.getAll(user?.id),
+    enabled: !!user?.id,
   })
 
   console.log('Dashboard - Apps data:', apps)
@@ -26,13 +30,13 @@ const DashboardPage = () => {
   console.log('Dashboard - Error:', error)
 
   const createAppMutation = useMutation({
-    mutationFn: appsApi.create,
+    mutationFn: (appData) => appsApi.create({ ...appData, userAccountId: user?.id }),
     onSuccess: (data) => {
       console.log('App created successfully:', data)
-      queryClient.invalidateQueries({ queryKey: ['apps'] })
+      queryClient.invalidateQueries({ queryKey: ['apps', user?.id] })
       setIsCreateModalOpen(false)
-      // Navigate to the newly created app dashboard
-      navigate(`/app/${data.id}`)
+      setNewAppData(data)
+      setShowClientSecretModal(true)
     },
     onError: (error) => {
       console.error('Failed to create app:', error)
@@ -42,7 +46,7 @@ const DashboardPage = () => {
   const deleteAppMutation = useMutation({
     mutationFn: appsApi.delete,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['apps'] })
+      queryClient.invalidateQueries({ queryKey: ['apps', user?.id] })
     },
   })
 
@@ -166,6 +170,15 @@ const DashboardPage = () => {
         onClose={() => setIsCreateModalOpen(false)}
         onSubmit={createAppMutation.mutate}
         isLoading={createAppMutation.isPending}
+      />
+
+      <ClientSecretModal
+        isOpen={showClientSecretModal}
+        onClose={() => {
+          setShowClientSecretModal(false)
+          setNewAppData(null)
+        }}
+        appData={newAppData}
       />
     </div>
   )
