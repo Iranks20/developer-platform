@@ -29,7 +29,8 @@ export const authApi = {
             email: data.data.user.email_address,
             name: data.data.user.full_name,
             avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.data.user.full_name)}&background=3b82f6&color=fff`,
-            status: data.data.user.user_account_status
+            status: data.data.user.user_account_status,
+            accessLevel: data.data.user.access_level
           },
           token: data.data.access_token,
           tokenType: data.data.token_type,
@@ -74,7 +75,8 @@ export const authApi = {
             email: data.data.email_address,
             name: data.data.full_name,
             avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.data.full_name)}&background=3b82f6&color=fff`,
-            status: data.data.user_account_status
+            status: data.data.user_account_status,
+            accessLevel: data.data.access_level || 1
           }
         }
       }

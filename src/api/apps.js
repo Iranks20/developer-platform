@@ -81,8 +81,10 @@ export const appsApi = {
           id: app.client_id,
           name: app.client_name,
           description: app.client_description || 'No description provided',
-          status: app.public ? 'live' : 'test',
-          createdAt: new Date().toISOString(),
+          status: app.client_env === 'PDN' ? 'live' : 'test',
+          clientStatus: app.client_status,
+          clientEnv: app.client_env,
+          createdAt: app.created_at,
           clientId: app.client_id,
           clientSecret: 'hidden'
         }))
@@ -113,6 +115,93 @@ export const appsApi = {
     }
   },
 
+  getAppDetails: async (clientId) => {
+    try {
+      console.log('Fetching app details for client ID:', clientId)
+      const response = await fetch(`${API_BASE}/auth/oauth2/client/${clientId}`)
+      if (!response.ok) {
+        throw new Error('Failed to fetch application details')
+      }
+      const data = await response.json()
+      console.log('App details response:', data)
+      
+      if (data.success && data.data) {
+        return {
+          id: data.data.client_id,
+          name: data.data.client_name,
+          description: data.data.client_description || 'No description provided',
+          status: data.data.client_env === 'PDN' ? 'live' : 'test',
+          createdAt: data.data.created_at,
+          clientId: data.data.client_id,
+          clientSecret: 'hidden', // Will be fetched separately
+          redirectUri: data.data.redirect_uri,
+          public: data.data.public,
+          clientStatus: data.data.client_status,
+          clientEnv: data.data.client_env,
+          scopes: data.data.mvd_api_client_scopes || []
+        }
+      }
+      
+      throw new Error('Invalid response format')
+    } catch (error) {
+      console.log('API not available, using fallback data for app details:', error.message)
+      const app = fallbackApps.find(a => a.id === clientId || a.clientId === clientId)
+      if (!app) {
+        throw new Error('Application not found')
+      }
+      return {
+        id: app.id,
+        name: app.name,
+        description: app.description,
+        status: app.status,
+        createdAt: app.createdAt,
+        clientId: app.clientId,
+        clientSecret: app.clientSecret,
+        redirectUri: null,
+        public: false,
+        clientStatus: 'new',
+        clientEnv: app.status === 'live' ? 'PDN' : 'QA',
+        scopes: []
+      }
+    }
+  },
+
+  getAppKeys: async (clientId) => {
+    try {
+      console.log('Fetching app keys for client ID:', clientId)
+      const response = await fetch(`${API_BASE}/auth/oauth2/client/appkey/${clientId}`)
+      if (!response.ok) {
+        throw new Error('Failed to fetch application keys')
+      }
+      const data = await response.json()
+      console.log('App keys response:', data)
+      
+      if (data.success && data.data && data.data.length > 0) {
+        const keyData = data.data[0]
+        return {
+          publicKey: keyData.public_key_pem,
+          registrationDate: keyData.registration_date,
+          lastRotationAt: keyData.last_rotation_at,
+          recordId: keyData.record_id
+        }
+      }
+      
+      return null
+    } catch (error) {
+      console.log('API not available, using fallback data for app keys:', error.message)
+      const app = fallbackApps.find(a => a.id === clientId || a.clientId === clientId)
+      if (!app) {
+        return null
+      }
+      return {
+        publicKey: `-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA${Math.random().toString(36).substr(2, 50)}\n-----END PUBLIC KEY-----`,
+        registrationDate: app.createdAt,
+        lastRotationAt: app.createdAt,
+        recordId: app.id
+      }
+    }
+  },
+
   create: async (appData) => {
     try {
       const response = await fetch(`${API_BASE}/auth/oauth2/client`, {
@@ -139,6 +228,8 @@ export const appsApi = {
           name: data.data.client_name,
           description: appData.description,
           status: 'test',
+          clientStatus: 'new',
+          clientEnv: 'QA',
           createdAt: new Date().toISOString(),
           clientId: data.data.client_id,
           clientSecret: data.data.client_secret
@@ -224,6 +315,40 @@ export const appsApi = {
       }
       app.clientSecret = generateClientSecret(app.status)
       return { clientSecret: app.clientSecret }
+    }
+  },
+
+  regenerateSecret: async (clientId) => {
+    try {
+      console.log('Regenerating secret for client ID:', clientId)
+      const response = await fetch(`${API_BASE}/auth/oauth2/client/${clientId}/regenerate-secret`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+      if (!response.ok) {
+        throw new Error('Failed to regenerate client secret')
+      }
+      const data = await response.json()
+      console.log('Regenerate secret response:', data)
+      
+      if (data.success && data.data) {
+        return {
+          clientSecret: data.data.client_secret
+        }
+      }
+      
+      throw new Error('Invalid response format')
+    } catch (error) {
+      console.log('API not available, using fallback secret regeneration:', error.message)
+      const app = fallbackApps.find(a => a.id === clientId || a.clientId === clientId)
+      if (!app) {
+        throw new Error('Application not found')
+      }
+      const newSecret = generateClientSecret(app.status)
+      app.clientSecret = newSecret
+      return { clientSecret: newSecret }
     }
   },
 }

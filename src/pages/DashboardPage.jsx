@@ -11,7 +11,7 @@ import ClientSecretModal from '../components/ClientSecretModal'
 import LoadingSpinner from '../components/LoadingSpinner'
 
 const DashboardPage = () => {
-  const [activeTab, setActiveTab] = useState('live')
+  const [activeTab, setActiveTab] = useState('test')
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [showClientSecretModal, setShowClientSecretModal] = useState(false)
   const [newAppData, setNewAppData] = useState(null)
@@ -19,40 +19,34 @@ const DashboardPage = () => {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
-  const { data: apps = [], isLoading, error } = useQuery({
-    queryKey: ['apps', user?.id],
-    queryFn: () => appsApi.getAll(user?.id),
-    enabled: !!user?.id,
+  // Fetch applications
+  const { data: apps, isLoading, error } = useQuery({
+    queryKey: ['apps'],
+    queryFn: () => appsApi.getAll(user?.id || 'default-user')
   })
 
-  console.log('Dashboard - Apps data:', apps)
-  console.log('Dashboard - Loading:', isLoading)
-  console.log('Dashboard - Error:', error)
-
+  // Create app mutation
   const createAppMutation = useMutation({
-    mutationFn: (appData) => appsApi.create({ ...appData, userAccountId: user?.id }),
+    mutationFn: (appData) => appsApi.create({ ...appData, userAccountId: user?.id || 'default-user' }),
     onSuccess: (data) => {
-      console.log('App created successfully:', data)
-      queryClient.invalidateQueries({ queryKey: ['apps', user?.id] })
+      queryClient.invalidateQueries(['apps'])
       setIsCreateModalOpen(false)
       setNewAppData(data)
       setShowClientSecretModal(true)
-    },
-    onError: (error) => {
-      console.error('Failed to create app:', error)
-    },
+    }
   })
 
+  // Delete app mutation
   const deleteAppMutation = useMutation({
     mutationFn: appsApi.delete,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['apps', user?.id] })
-    },
+      queryClient.invalidateQueries(['apps'])
+    }
   })
 
-  const filteredApps = apps.filter(app => 
-    activeTab === 'live' ? app.status === 'live' : app.status === 'test'
-  )
+  const handleCreateApp = (appData) => {
+    createAppMutation.mutate(appData)
+  }
 
   const handleDeleteApp = (appId) => {
     if (window.confirm('Are you sure you want to delete this application?')) {
@@ -60,124 +54,151 @@ const DashboardPage = () => {
     }
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <Header user={user} onLogout={logout} />
-      
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="section-header"
-        >
-          <h1 className="section-title font-heading">My Applications</h1>
-          <p className="section-subtitle">
-            Manage your applications and API access
-          </p>
-        </motion.div>
+  const handleCloseClientSecretModal = () => {
+    setShowClientSecretModal(false)
+    setNewAppData(null)
+  }
 
-        <div className="card-elevated">
-          <div className="border-b border-gray-200">
-            <nav className="flex space-x-8 px-6">
-              <button
-                onClick={() => setActiveTab('live')}
-                className={`tab-button ${
-                  activeTab === 'live' ? 'active' : ''
-                }`}
-              >
-                Live Applications ({apps.filter(app => app.status === 'live').length})
-              </button>
-              <button
-                onClick={() => setActiveTab('test')}
-                className={`tab-button ${
-                  activeTab === 'test' ? 'active' : ''
-                }`}
-              >
-                Test Applications ({apps.filter(app => app.status === 'test').length})
-              </button>
-            </nav>
-          </div>
+  const filteredApps = apps?.filter(app => {
+    if (activeTab === 'all') return true
+    return app.status === activeTab
+  }) || []
 
-          <div className="p-6">
-            {isLoading ? (
-              <div className="flex justify-center py-16">
-                <div className="text-center">
-                  <LoadingSpinner size="lg" />
-                  <p className="mt-4 text-gray-600">Loading your applications...</p>
-                </div>
-              </div>
-            ) : filteredApps.length === 0 ? (
-              <div className="text-center py-16">
-                <div className="mx-auto h-20 w-20 bg-gradient-to-br from-primary-100 to-primary-200 rounded-card flex items-center justify-center mb-6 shadow-sm">
-                  <svg className="h-10 w-10 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                  </svg>
-                </div>
-                <h3 className="text-2xl font-bold text-gray-800 font-heading mb-3">
-                  No {activeTab} applications
-                </h3>
-                <p className="text-lg text-gray-600 mb-8 max-w-md mx-auto">
-                  {activeTab === 'live' 
-                    ? 'Create your first live application to get started with our APIs.'
-                    : 'Create test applications to experiment with our APIs safely.'
-                  }
-                </p>
-                <button
-                  onClick={() => setIsCreateModalOpen(true)}
-                  className="btn-primary"
-                >
-                  Create New Application
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {filteredApps.map((app, index) => (
-                  <motion.div
-                    key={app.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className="fade-in"
-                  >
-                    <AppCard
-                      app={app}
-                      onDelete={() => handleDeleteApp(app.id)}
-                    />
-                  </motion.div>
-                ))}
-              </div>
-            )}
+  const getStatusCount = (status) => {
+    if (status === 'all') return apps?.length || 0
+    return apps?.filter(app => app.status === status).length || 0
+  }
 
-            {filteredApps.length > 0 && (
-              <div className="mt-10 flex justify-center">
-                <button
-                  onClick={() => setIsCreateModalOpen(true)}
-                  className="btn-primary"
-                >
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  Create New Application
-                </button>
-              </div>
-            )}
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        <Header user={user} onLogout={logout} />
+        <div className="flex items-center justify-center h-96">
+          <LoadingSpinner size="lg" />
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+        <Header user={user} onLogout={logout} />
+        <div className="max-w-7xl mx-auto px-8 py-8">
+          <div className="text-center">
+            <div className="text-error-500 text-6xl mb-4">⚠️</div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Error Loading Applications</h2>
+            <p className="text-gray-600 mb-6">There was a problem loading your applications. Please try again.</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="btn-primary"
+            >
+              Retry
+            </button>
           </div>
         </div>
       </div>
+    )
+  }
 
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      <Header user={user} onLogout={logout} />
+      
+      <div className="max-w-full mx-auto px-8 pt-6 pb-8">
+        {/* My Applications Card */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+          {/* Page Header */}
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-gray-800 mb-2">My Applications</h1>
+            <p className="text-gray-600 text-lg">Manage your applications and API access.</p>
+          </div>
+
+          {/* Status Filter Tabs */}
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex bg-gray-50 rounded-lg border border-gray-200 p-1">
+              {[
+                { key: 'live', label: 'Live Applications', count: getStatusCount('live') },
+                { key: 'test', label: 'Test Applications', count: getStatusCount('test') }
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`px-6 py-3 text-sm font-medium rounded-md transition-all duration-200 ${
+                    activeTab === tab.key
+                      ? 'bg-primary-100 text-primary-700 border border-primary-200 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-white'
+                  }`}
+                >
+                  {tab.label} ({tab.count})
+                </button>
+              ))}
+            </div>
+            
+            <button
+              onClick={() => setIsCreateModalOpen(true)}
+              className="px-6 py-3 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors"
+            >
+              + Create New Application
+            </button>
+          </div>
+
+          {/* Applications Grid */}
+          {filteredApps.length === 0 ? (
+            <div className="text-center py-16">
+              <div className="w-24 h-24 mx-auto mb-6 bg-gray-100 rounded-full flex items-center justify-center">
+                <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">No applications found</h3>
+              <p className="text-gray-600 mb-6">
+                {activeTab === 'all' 
+                  ? "You haven't created any applications yet. Get started by creating your first app."
+                  : `No applications with ${activeTab} status found.`
+                }
+              </p>
+              <button
+                onClick={() => setIsCreateModalOpen(true)}
+                className="btn-primary"
+              >
+                Create your first app
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
+              {filteredApps.map((app) => (
+                <motion.div
+                  key={app.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="w-full"
+                >
+                  <AppCard
+                    app={app}
+                    onDelete={handleDeleteApp}
+                    viewMode="grid"
+                    onViewApp={(app) => navigate(`/app/${app.id}`)}
+                  />
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Modals */}
       <CreateAppModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        onSubmit={createAppMutation.mutate}
+        onSubmit={handleCreateApp}
         isLoading={createAppMutation.isPending}
       />
 
       <ClientSecretModal
         isOpen={showClientSecretModal}
-        onClose={() => {
-          setShowClientSecretModal(false)
-          setNewAppData(null)
-        }}
+        onClose={handleCloseClientSecretModal}
         appData={newAppData}
       />
     </div>

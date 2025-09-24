@@ -29,7 +29,7 @@ const Header = ({ user, onLogout }) => {
 
   return (
     <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="w-full px-6">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
             <Link to="/dashboard" className="flex items-center space-x-3 group">
@@ -92,9 +92,18 @@ const Header = ({ user, onLogout }) => {
                 src={user?.avatar}
                 alt={user?.name}
               />
-              <span className="hidden sm:block font-medium text-gray-700">
-                {user?.name}
-              </span>
+              <div className="hidden sm:flex items-center space-x-2">
+                <span className="font-medium text-gray-700">
+                  {user?.name}
+                </span>
+                <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${
+                  user?.accessLevel === 2 
+                    ? 'bg-purple-100 text-purple-700' 
+                    : 'bg-blue-100 text-blue-700'
+                }`}>
+                  {user?.accessLevel === 2 ? 'Admin' : 'User'}
+                </span>
+              </div>
               <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
@@ -110,6 +119,15 @@ const Header = ({ user, onLogout }) => {
                 <div className="px-4 py-3 border-b border-gray-100">
                   <p className="text-sm font-medium text-gray-900">{user?.name}</p>
                   <p className="text-sm text-gray-500">{user?.email}</p>
+                  <div className="mt-1">
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                      user?.accessLevel === 2 
+                        ? 'bg-purple-100 text-purple-800' 
+                        : 'bg-blue-100 text-blue-800'
+                    }`}>
+                      {user?.accessLevel === 2 ? 'Admin' : 'User'}
+                    </span>
+                  </div>
                 </div>
                 
                 <div className="py-1">

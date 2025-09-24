@@ -77,26 +77,6 @@ const CreateAppModal = ({ isOpen, onClose, onSubmit, isLoading }) => {
           </p>
         </div>
 
-        <div>
-          <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-2">
-            Environment
-          </label>
-          <select
-            id="status"
-            value={formData.status}
-            onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-            className="input-field"
-          >
-            <option value="test">Test Environment</option>
-            <option value="live">Live Environment</option>
-          </select>
-          <p className="mt-1 text-sm text-gray-500">
-            {formData.status === 'test' 
-              ? 'Test applications are for development and testing purposes.'
-              : 'Live applications can process real transactions.'
-            }
-          </p>
-        </div>
 
         <div className="flex justify-end space-x-3 pt-4">
           <button

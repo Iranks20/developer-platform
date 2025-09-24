@@ -7,9 +7,8 @@ import { useAuth } from '../context/AuthContext'
 import Header from '../components/Header'
 import Sidebar from '../components/Sidebar'
 import AppOverview from '../components/AppOverview'
-import KeyManagement from '../components/KeyManagement'
 import ProductStatus from '../components/ProductStatus'
-import AppSettings from '../components/AppSettings'
+import Countries from '../components/Countries'
 import ApiDocs from '../components/ApiDocs'
 import LoadingSpinner from '../components/LoadingSpinner'
 
@@ -22,38 +21,16 @@ const AppDashboardPage = () => {
 
   console.log('AppDashboardPage - App ID from URL:', appId)
 
-  // For demo purposes, always show a mock app instead of fetching from API
-  const mockApp = {
-    id: appId || 'demo',
-    name: appId === '1' ? 'E-commerce App' : 
-          appId === '2' ? 'Mobile App' : 
-          appId === '3' ? 'Analytics Dashboard' : 
-          appId === '4' ? 'API Gateway' : 
-          `Demo App ${appId}`,
-    description: appId === '1' ? 'Main e-commerce application for online store' :
-                 appId === '2' ? 'Mobile application for iOS and Android' :
-                 appId === '3' ? 'Internal analytics and reporting dashboard' :
-                 appId === '4' ? 'Centralized API gateway for microservices' :
-                 `Demo application with ID ${appId}`,
-    status: appId === '1' || appId === '3' ? 'live' : 'test',
-    createdAt: '2024-01-15T10:30:00Z',
-    clientId: `app_${appId || 'demo'}_${Math.random().toString(36).substr(2, 8)}`,
-    clientSecret: `sk_${appId === '1' || appId === '3' ? 'live' : 'test'}_${Math.random().toString(36).substr(2, 20)}`,
-    products: [
-      { id: 'prod_1', name: 'Payment API', status: 'active' },
-      { id: 'prod_2', name: 'User Management', status: 'active' },
-      { id: 'prod_3', name: 'Analytics API', status: 'pending' },
-      { id: 'prod_4', name: 'Push Notifications', status: 'active' },
-      { id: 'prod_5', name: 'Location Services', status: 'disabled' }
-    ]
-  }
+  const { data: app, isLoading, error } = useQuery({
+    queryKey: ['app', appId],
+    queryFn: () => appsApi.getAppDetails(appId),
+    enabled: !!appId,
+    retry: 1
+  })
 
-  const app = mockApp
-  const isLoading = false
-  const error = null
-
-  console.log('AppDashboardPage - Demo App data:', app)
-  console.log('AppDashboardPage - App ID from URL:', appId)
+  console.log('AppDashboardPage - App data:', app)
+  console.log('AppDashboardPage - Loading:', isLoading)
+  console.log('AppDashboardPage - Error:', error)
 
   const updateAppMutation = useMutation({
     mutationFn: ({ id, data }) => appsApi.update(id, data),
@@ -86,35 +63,66 @@ const AppDashboardPage = () => {
     )
   }
 
-  // Removed error handling - always show demo dashboard for any app ID
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="mx-auto h-12 w-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
+            <svg className="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Application Not Found</h3>
+          <p className="text-gray-500 mb-4">The application you're looking for doesn't exist or you don't have access to it.</p>
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="btn-primary"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (!app) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <LoadingSpinner size="lg" />
+      </div>
+    )
+  }
 
   const renderContent = () => {
     switch (activeTab) {
       case 'overview':
-        return <AppOverview app={app} onUpdate={updateAppMutation.mutate} />
-      case 'keys':
         return (
-          <KeyManagement
-            app={app}
+          <AppOverview 
+            app={app} 
+            onUpdate={updateAppMutation.mutate}
+            onDelete={deleteAppMutation.mutate}
             onRegenerateKeys={regenerateKeysMutation.mutate}
             isRegenerating={regenerateKeysMutation.isPending}
+            isDeleting={deleteAppMutation.isPending}
           />
         )
       case 'products':
         return <ProductStatus app={app} />
-      case 'settings':
-        return (
-          <AppSettings
-            app={app}
-            onUpdate={updateAppMutation.mutate}
-            onDelete={deleteAppMutation.mutate}
-            isDeleting={deleteAppMutation.isPending}
-          />
-        )
+      case 'countries':
+        return <Countries />
       case 'docs':
         return <ApiDocs />
       default:
-        return <AppOverview app={app} onUpdate={updateAppMutation.mutate} />
+        return (
+          <AppOverview 
+            app={app} 
+            onUpdate={updateAppMutation.mutate}
+            onDelete={deleteAppMutation.mutate}
+            onRegenerateKeys={regenerateKeysMutation.mutate}
+            isRegenerating={regenerateKeysMutation.isPending}
+            isDeleting={deleteAppMutation.isPending}
+          />
+        )
     }
   }
 
