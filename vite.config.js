@@ -5,6 +5,11 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3001,
-    open: true
-  }
+    host: true,
+    allowedHosts: ["developer.gwiza.tech"], // Allow specific hosts
+  },
+  preview: {
+    host: true,
+    allowedHosts: ["developer.gwiza.tech"], // Allow specific hosts
+  },
 })
