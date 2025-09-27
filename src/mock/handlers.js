@@ -50,6 +50,7 @@ export const handlers = [
     return HttpResponse.json(applications)
   }),
 
+
   http.post('/api/apps', async ({ request }) => {
     const newApp = await request.json()
     const app = {
@@ -122,13 +123,17 @@ export const handlers = [
     try {
       const payload = JSON.parse(atob(id_token.split('.')[1]))
       
+      const isAdmin = payload.email === 'admin@example.com' || payload.email.includes('admin')
+      
       return HttpResponse.json({
         user: {
           id: payload.sub,
           email: payload.email,
           name: payload.name,
           avatar: payload.picture,
-          isGoogleUser: true
+          isGoogleUser: true,
+          accessLevel: isAdmin ? 2 : 1,
+          token: 'mock-jwt-token'
         }
       })
     } catch (error) {
@@ -142,13 +147,17 @@ export const handlers = [
     try {
       const payload = JSON.parse(atob(id_token.split('.')[1]))
       
+      const isAdmin = payload.email === 'admin@example.com' || payload.email.includes('admin')
+      
       return HttpResponse.json({
         user: {
           id: payload.sub,
           email: payload.email,
           name: payload.name,
           avatar: payload.picture,
-          isGoogleUser: true
+          isGoogleUser: true,
+          accessLevel: isAdmin ? 2 : 1,
+          token: 'mock-jwt-token'
         }
       })
     } catch (error) {
@@ -234,6 +243,51 @@ export const handlers = [
           ]
         }
       ]
+    })
+  }),
+
+  // Admin product management endpoints
+  http.patch('https://openapi.qa.gwiza.co/appsettings/app/approveproduct/:recordId', ({ params }) => {
+    return HttpResponse.json({
+      success: true,
+      message: 'Product approved successfully',
+      data: {
+        record_id: params.recordId,
+        status: 'active'
+      }
+    })
+  }),
+
+  http.patch('https://openapi.qa.gwiza.co/appsettings/app/rejectproduct/:recordId', ({ params }) => {
+    return HttpResponse.json({
+      success: true,
+      message: 'Product rejected successfully',
+      data: {
+        record_id: params.recordId,
+        status: 'rejected'
+      }
+    })
+  }),
+
+  http.patch('https://openapi.qa.gwiza.co/appsettings/app/activateproduct/:recordId', ({ params }) => {
+    return HttpResponse.json({
+      success: true,
+      message: 'Product activated successfully',
+      data: {
+        record_id: params.recordId,
+        status: 'active'
+      }
+    })
+  }),
+
+  http.patch('https://openapi.qa.gwiza.co/appsettings/app/deactivateproduct/:recordId', ({ params }) => {
+    return HttpResponse.json({
+      success: true,
+      message: 'Product deactivated successfully',
+      data: {
+        record_id: params.recordId,
+        status: 'inactive'
+      }
     })
   })
 ]

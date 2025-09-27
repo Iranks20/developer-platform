@@ -1,5 +1,18 @@
 const API_BASE = 'https://openapi.qa.gwiza.co'
 
+const getAuthHeaders = () => {
+  const user = JSON.parse(localStorage.getItem('portal_user') || '{}');
+  if (user.token) {
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${user.token}`
+    };
+  }
+  return {
+    'Content-Type': 'application/json'
+  };
+};
+
 // Fallback mock data for when API is not available
 const fallbackProducts = [
   {
@@ -52,9 +65,11 @@ export const productsApi = {
       
       console.log('Fetching from endpoint:', endpoint)
       
-      const response = await fetch(endpoint)
+      const response = await fetch(endpoint, {
+        headers: getAuthHeaders()
+      })
       if (!response.ok) {
-        throw new Error('Failed to fetch products')
+        throw new Error(`Failed to fetch products: ${response.status} ${response.statusText}`)
       }
       
       const data = await response.json()
@@ -99,9 +114,7 @@ export const productsApi = {
       console.log('Creating product:', productData)
       const response = await fetch(`${API_BASE}/appsettings/products`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           scope_group_name: productData.name,
           scope_group_description: productData.description,
@@ -163,9 +176,7 @@ export const productsApi = {
       console.log('Updating product:', productId, productData)
       const response = await fetch(`${API_BASE}/appsettings/products/${productId}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           scope_group_name: productData.name,
           scope_group_description: productData.description,
@@ -220,6 +231,7 @@ export const productsApi = {
       console.log('Deleting product:', productId)
       const response = await fetch(`${API_BASE}/appsettings/products/${productId}`, {
         method: 'DELETE',
+        headers: getAuthHeaders()
       })
       
       if (!response.ok) {

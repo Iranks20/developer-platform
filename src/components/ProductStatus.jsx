@@ -3,7 +3,9 @@ import { motion } from 'framer-motion'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext'
 import { productsApi } from '../api/products'
+import productPairingApi from '../api/productPairing'
 import ProductModal from './ProductModal'
+import ApprovalModal from './ApprovalModal'
 import ConfirmDialog from './ConfirmDialog'
 import LoadingSpinner from './LoadingSpinner'
 
@@ -14,70 +16,168 @@ const ProductStatus = ({ app }) => {
   const [editingProduct, setEditingProduct] = useState(null)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [productToDelete, setProductToDelete] = useState(null)
+  const [deleteAction, setDeleteAction] = useState('delete') // 'delete' or 'deactivate'
   const [filter, setFilter] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
+  const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false)
+  const [productToApprove, setProductToApprove] = useState(null)
 
-  // Fetch products based on user access level
+  // Fetch products or product pairs based on user access level
   const { data: products = [], isLoading: productsLoading, error: productsError } = useQuery({
-    queryKey: ['products', user?.accessLevel],
-    queryFn: () => productsApi.getAll(user?.accessLevel || 1),
-    enabled: !!user?.accessLevel,
+    queryKey: user?.accessLevel === 2 ? ['products', user?.accessLevel, app?.clientId] : ['productPairs', app?.clientId],
+    queryFn: () => user?.accessLevel === 2 
+      ? (app?.clientId ? productPairingApi.getPairs(app.clientId) : productsApi.getAll(user?.accessLevel || 1))
+      : productPairingApi.getPairs(app?.clientId),
+    enabled: !!user?.accessLevel && (user?.accessLevel === 2 || !!app?.clientId),
     retry: 1
   })
 
   const filteredProducts = useMemo(() => {
+    // Ensure products is an array
+    if (!Array.isArray(products)) {
+      return []
+    }
+
     let filtered = products
 
     if (filter !== 'all') {
-      filtered = filtered.filter(product => product.status === filter)
+      if (filter === 'disabled') {
+        filtered = filtered.filter(product => product.status === 'disabled' || product.status === 'inactive')
+      } else {
+        filtered = filtered.filter(product => product.status === filter)
+      }
     }
 
     if (searchTerm) {
       filtered = filtered.filter(product =>
-        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.description.toLowerCase().includes(searchTerm.toLowerCase())
+        product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.description?.toLowerCase().includes(searchTerm.toLowerCase())
       )
     }
 
     return filtered
   }, [products, filter, searchTerm])
 
-  // Create product mutation (admin only)
+  // Create product/pairing mutation
   const createProductMutation = useMutation({
-    mutationFn: productsApi.create,
+    mutationFn: (data) => user?.accessLevel === 2 
+      ? productsApi.create(data)
+      : productPairingApi.addPair(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['products', user?.accessLevel] })
+      const queryKey = user?.accessLevel === 2 
+        ? ['products', user?.accessLevel] 
+        : ['productPairs', app?.clientId]
+      queryClient.invalidateQueries({ queryKey })
       setIsModalOpen(false)
       setEditingProduct(null)
     },
     onError: (error) => {
-      console.error('Error creating product:', error)
+      console.error('Error creating product/pairing:', error)
     }
   })
 
-  // Update product mutation (admin only)
+  // Update product/pairing mutation
   const updateProductMutation = useMutation({
-    mutationFn: ({ id, data }) => productsApi.update(id, data),
+    mutationFn: ({ id, data }) => user?.accessLevel === 2 
+      ? productsApi.update(id, data)
+      : productPairingApi.updatePair(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['products', user?.accessLevel] })
+      const queryKey = user?.accessLevel === 2 
+        ? ['products', user?.accessLevel] 
+        : ['productPairs', app?.clientId]
+      queryClient.invalidateQueries({ queryKey })
       setEditingProduct(null)
       setIsModalOpen(false)
     },
     onError: (error) => {
-      console.error('Error updating product:', error)
+      console.error('Error updating product/pairing:', error)
     }
   })
 
-  // Delete product mutation (admin only)
+  // Delete product/pairing mutation
   const deleteProductMutation = useMutation({
-    mutationFn: productsApi.delete,
+    mutationFn: (id) => user?.accessLevel === 2 
+      ? productsApi.delete(id)
+      : productPairingApi.removePair(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['products', user?.accessLevel] })
+      const queryKey = user?.accessLevel === 2 
+        ? ['products', user?.accessLevel] 
+        : ['productPairs', app?.clientId]
+      queryClient.invalidateQueries({ queryKey })
       setIsDeleteDialogOpen(false)
       setProductToDelete(null)
     },
     onError: (error) => {
-      console.error('Error deleting product:', error)
+      console.error('Error deleting product/pairing:', error)
+    }
+  })
+
+  // Deactivate product pairing mutation (for normal users only)
+  const deactivatePairMutation = useMutation({
+    mutationFn: (recordId) => productPairingApi.deactivatePair(recordId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['productPairs', app?.clientId] })
+      setIsDeleteDialogOpen(false)
+      setProductToDelete(null)
+    },
+    onError: (error) => {
+      console.error('Error deactivating product pair:', error)
+    }
+  })
+
+  // Admin-specific mutations for product management
+  const approveProductMutation = useMutation({
+    mutationFn: ({ record_id, assignment_status, approval_pin }) => 
+      productPairingApi.approvePair(record_id, assignment_status, approval_pin),
+    onSuccess: () => {
+      const queryKey = user?.accessLevel === 2 
+        ? ['products', user?.accessLevel, app?.clientId] 
+        : ['productPairs', app?.clientId]
+      queryClient.invalidateQueries({ queryKey })
+      setIsApprovalModalOpen(false)
+      setProductToApprove(null)
+    },
+    onError: (error) => {
+      console.error('Error approving product:', error)
+    }
+  })
+
+  const rejectProductMutation = useMutation({
+    mutationFn: (recordId) => productPairingApi.rejectProduct(recordId),
+    onSuccess: () => {
+      const queryKey = user?.accessLevel === 2 
+        ? ['products', user?.accessLevel, app?.clientId] 
+        : ['productPairs', app?.clientId]
+      queryClient.invalidateQueries({ queryKey })
+    },
+    onError: (error) => {
+      console.error('Error rejecting product:', error)
+    }
+  })
+
+  const activateProductMutation = useMutation({
+    mutationFn: (recordId) => productPairingApi.activateProduct(recordId),
+    onSuccess: () => {
+      const queryKey = user?.accessLevel === 2 
+        ? ['products', user?.accessLevel, app?.clientId] 
+        : ['productPairs', app?.clientId]
+      queryClient.invalidateQueries({ queryKey })
+    },
+    onError: (error) => {
+      console.error('Error activating product:', error)
+    }
+  })
+
+  const deactivateProductMutation = useMutation({
+    mutationFn: (recordId) => productPairingApi.deactivateProduct(recordId),
+    onSuccess: () => {
+      const queryKey = user?.accessLevel === 2 
+        ? ['products', user?.accessLevel, app?.clientId] 
+        : ['productPairs', app?.clientId]
+      queryClient.invalidateQueries({ queryKey })
+    },
+    onError: (error) => {
+      console.error('Error deactivating product:', error)
     }
   })
 
@@ -86,11 +186,22 @@ const ProductStatus = ({ app }) => {
   }
 
   const handleUpdateProduct = async (productData) => {
-    updateProductMutation.mutate({ id: editingProduct.id, data: productData })
+    if (user?.accessLevel === 2) {
+      // Admin editing product
+      updateProductMutation.mutate({ id: editingProduct.id, data: productData })
+    } else {
+      // Normal user editing product pairing - pass record_id as parameter
+      updateProductMutation.mutate({ id: editingProduct.record_id, data: productData })
+    }
   }
 
   const handleDeleteProduct = async () => {
-    deleteProductMutation.mutate(productToDelete.id)
+    const recordId = user?.accessLevel === 2 ? productToDelete.id : productToDelete.record_id
+    deleteProductMutation.mutate(recordId)
+  }
+
+  const handleDeactivatePair = async () => {
+    deactivatePairMutation.mutate(productToDelete.record_id)
   }
 
   const handleEditProduct = (product) => {
@@ -100,6 +211,13 @@ const ProductStatus = ({ app }) => {
 
   const handleDeleteClick = (product) => {
     setProductToDelete(product)
+    setDeleteAction('delete')
+    setIsDeleteDialogOpen(true)
+  }
+
+  const handleDeactivateClick = (product) => {
+    setProductToDelete(product)
+    setDeleteAction('deactivate')
     setIsDeleteDialogOpen(true)
   }
 
@@ -108,16 +226,42 @@ const ProductStatus = ({ app }) => {
     setEditingProduct(null)
   }
 
+  // Admin-specific handlers
+  const handleApproveProduct = (product) => {
+    setProductToApprove(product)
+    setIsApprovalModalOpen(true)
+  }
+
+  const handleApprovalSubmit = (approvalData) => {
+    approveProductMutation.mutate(approvalData)
+  }
+
+  const handleRejectProduct = (product) => {
+    rejectProductMutation.mutate(product.record_id)
+  }
+
+  const handleActivateProduct = (product) => {
+    activateProductMutation.mutate(product.record_id)
+  }
+
+  const handleDeactivateProduct = (product) => {
+    deactivateProductMutation.mutate(product.record_id)
+  }
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'active':
-        return 'status-live'
+        return 'bg-green-100 text-green-800 border border-green-200'
       case 'pending':
-        return 'status-pending'
+        return 'bg-blue-100 text-blue-800 border border-blue-200'
       case 'disabled':
-        return 'status-disabled'
+        return 'bg-red-100 text-red-800 border border-red-200'
+      case 'inactive':
+        return 'bg-yellow-100 text-yellow-800 border border-yellow-200'
+      case 'deleted':
+        return 'bg-gray-100 text-gray-800 border border-gray-200'
       default:
-        return 'status-disabled'
+        return 'bg-gray-100 text-gray-600 border border-gray-200'
     }
   }
 
@@ -136,6 +280,7 @@ const ProductStatus = ({ app }) => {
           </svg>
         )
       case 'disabled':
+      case 'inactive':
         return (
           <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -146,9 +291,9 @@ const ProductStatus = ({ app }) => {
     }
   }
 
-  const activeProducts = products.filter(p => p.status === 'active').length
-  const pendingProducts = products.filter(p => p.status === 'pending').length
-  const disabledProducts = products.filter(p => p.status === 'disabled').length
+  const activeProducts = Array.isArray(products) ? products.filter(p => p.status === 'active').length : 0
+  const pendingProducts = Array.isArray(products) ? products.filter(p => p.status === 'pending').length : 0
+  const disabledProducts = Array.isArray(products) ? products.filter(p => p.status === 'disabled' || p.status === 'inactive').length : 0
 
   // Show loading spinner while fetching products
   if (productsLoading) {
@@ -186,23 +331,31 @@ const ProductStatus = ({ app }) => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Product Status</h1>
-          <p className="text-gray-600">
+          <h1 className="text-2xl font-bold text-gray-900">
             {user?.accessLevel === 2 
-              ? 'Monitor and manage all API products and services (Admin View)' 
-              : 'Monitor the status of your active API products and services'
+              ? (app?.clientId ? `Products for ${app.name}` : 'Product Status')
+              : 'My Product Pairings'
+            }
+          </h1>
+          <p className="text-gray-700">
+            {user?.accessLevel === 2 
+              ? (app?.clientId 
+                ? `Manage products created by users for ${app.name}` 
+                : 'Monitor and manage all API products and services (Admin View)'
+              )
+              : 'View and manage your product pairings awaiting approval'
             }
           </p>
         </div>
-        {user?.accessLevel === 2 && (
+        {(user?.accessLevel !== 2 || !app?.clientId) && (
           <button
             onClick={() => setIsModalOpen(true)}
-            className="btn-primary w-55 flex items-center whitespace-nowrap"
+            className="btn-primary flex items-center whitespace-nowrap"
           >
             <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
-            Add Product
+            {user?.accessLevel === 2 ? 'Add Product' : 'Add Product Pairing'}
           </button>
         )}
       </div>
@@ -272,7 +425,7 @@ const ProductStatus = ({ app }) => {
         className="card"
       >
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-gray-900">All Products</h3>
+          <h3 className="text-xl font-bold text-gray-900">All Products</h3>
           <div className="flex items-center space-x-4">
             <div className="relative">
               <input
@@ -289,59 +442,58 @@ const ProductStatus = ({ app }) => {
             <div className="flex space-x-2">
               <button 
                 onClick={() => setFilter('all')}
-                className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                className={`px-4 py-2 text-sm font-bold rounded-md transition-colors ${
                   filter === 'all' 
-                    ? 'bg-primary-100 text-primary-700' 
-                    : 'text-gray-500 hover:bg-gray-100'
+                    ? 'bg-primary-100 text-primary-700 border border-primary-200' 
+                    : 'text-gray-600 hover:bg-gray-100 font-medium'
                 }`}
               >
                 All ({products.length})
               </button>
               <button 
                 onClick={() => setFilter('active')}
-                className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                className={`px-4 py-2 text-sm font-bold rounded-md transition-colors ${
                   filter === 'active' 
-                    ? 'bg-primary-100 text-primary-700' 
-                    : 'text-gray-500 hover:bg-gray-100'
+                    ? 'bg-green-100 text-green-700 border border-green-200' 
+                    : 'text-gray-600 hover:bg-green-50 font-medium'
                 }`}
               >
                 Active ({activeProducts})
               </button>
               <button 
                 onClick={() => setFilter('pending')}
-                className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                className={`px-4 py-2 text-sm font-bold rounded-md transition-colors ${
                   filter === 'pending' 
-                    ? 'bg-primary-100 text-primary-700' 
-                    : 'text-gray-500 hover:bg-gray-100'
+                    ? 'bg-blue-100 text-blue-700 border border-blue-200' 
+                    : 'text-gray-600 hover:bg-blue-50 font-medium'
                 }`}
               >
                 Pending ({pendingProducts})
               </button>
               <button 
                 onClick={() => setFilter('disabled')}
-                className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                className={`px-4 py-2 text-sm font-bold rounded-md transition-colors ${
                   filter === 'disabled' 
-                    ? 'bg-primary-100 text-primary-700' 
-                    : 'text-gray-500 hover:bg-gray-100'
+                    ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' 
+                    : 'text-gray-600 hover:bg-yellow-50 font-medium'
                 }`}
               >
-                Disabled ({disabledProducts})
+                Inactive ({disabledProducts})
               </button>
             </div>
           </div>
         </div>
 
-        <div className="space-y-4">
-          {filteredProducts.length === 0 ? (
+        {filteredProducts.length === 0 ? (
             <div className="text-center py-12">
               <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
               </svg>
               <h3 className="mt-2 text-sm font-medium text-gray-900">No products found</h3>
-              <p className="mt-1 text-sm text-gray-500">
+              <p className="mt-1 text-sm text-gray-700">
                 {searchTerm ? 'Try adjusting your search terms.' : 'Get started by creating a new product.'}
               </p>
-              {!searchTerm && user?.accessLevel === 2 && (
+              {!searchTerm && (
                 <div className="mt-6">
                   <button
                     onClick={() => setIsModalOpen(true)}
@@ -350,146 +502,189 @@ const ProductStatus = ({ app }) => {
                     <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
-                    Add Product
+                    {user?.accessLevel === 2 ? 'Add Product' : 'Add Product Pairing'}
                   </button>
                 </div>
               )}
             </div>
-          ) : (
-            filteredProducts.map((product, index) => (
-              <motion.div
-                key={product.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex items-center space-x-4">
-                  <div className="flex-shrink-0">
-                    {getStatusIcon(product.status)}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-1">
-                      <h4 className="text-sm font-medium text-gray-900">{product.name}</h4>
-                      <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full border border-gray-300">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider border-b border-gray-300">
+                    Product
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider border-b border-gray-300">
+                    Type
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider border-b border-gray-300">
+                    Status
+                  </th>
+                  {user?.accessLevel === 2 && app?.clientId && (
+                    <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider border-b border-gray-300">
+                      Country
+                    </th>
+                  )}
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider border-b border-gray-300">
+                    Description
+                  </th>
+                  <th className="px-6 py-4 text-right text-sm font-bold text-gray-900 uppercase tracking-wider border-b border-gray-300">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white">
+                {filteredProducts.map((product, index) => (
+                  <motion.tr
+                    key={product.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: index * 0.05 }}
+                    className="hover:bg-gray-50 transition-colors duration-150 border-b border-gray-300"
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div>
+                        <div className="text-sm font-semibold text-gray-900">{product.name || product.product_name}</div>
+                        {user?.accessLevel === 2 && !app?.clientId && (
+                          <div className="text-sm text-gray-700">ID: {product.scope_group_id}</div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
                         {product.type || 'product'}
                       </span>
-                    </div>
-                    <p className="text-sm text-gray-500 mb-2">{product.description}</p>
-                    <div className="flex items-center space-x-4 text-xs text-gray-400">
-                      <span>ID: {product.scope_group_id}</span>
-                      <span>•</span>
-                      <span>Type: {product.type || 'product'}</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-4">
-                  <span className={`status-badge ${getStatusColor(product.status)}`}>
-                    {product.status.toUpperCase()}
-                  </span>
-                  {user?.accessLevel === 2 && (
-                    <div className="relative">
-                      <button 
-                        onClick={() => {
-                          const menu = document.getElementById(`menu-${product.id}`)
-                          if (menu) {
-                            menu.classList.toggle('hidden')
-                          }
-                        }}
-                        className="text-gray-400 hover:text-gray-600 transition-colors"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                        </svg>
-                      </button>
-                      <div 
-                        id={`menu-${product.id}`}
-                        className="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200"
-                      >
-                        <div className="py-1">
-                          <button
-                            onClick={() => {
-                              handleEditProduct(product)
-                              document.getElementById(`menu-${product.id}`).classList.add('hidden')
-                            }}
-                            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                          >
-                            <svg className="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                            Edit Product
-                          </button>
-                          <button
-                            onClick={() => {
-                              handleDeleteClick(product)
-                              document.getElementById(`menu-${product.id}`).classList.add('hidden')
-                            }}
-                            className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                          >
-                            <svg className="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                            Delete Product
-                          </button>
-                        </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(product.status)}`}>
+                        {product.status.charAt(0).toUpperCase() + product.status.slice(1)}
+                      </span>
+                    </td>
+                    {user?.accessLevel === 2 && app?.clientId && (
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{product.country_name || 'N/A'}</div>
+                      </td>
+                    )}
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-gray-800 max-w-xs truncate">
+                        {product.description || 'No description provided'}
                       </div>
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            ))
-          )}
-        </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex items-center justify-end space-x-3">
+                        {user?.accessLevel === 2 && app?.clientId ? (
+                          <>
+                            {product.status === 'pending' && (
+                              <>
+                                <button
+                                  onClick={() => handleApproveProduct(product)}
+                                  className="text-green-600 hover:text-green-900 transition-colors duration-150 font-medium"
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  onClick={() => handleRejectProduct(product)}
+                                  className="text-red-600 hover:text-red-900 transition-colors duration-150 font-medium"
+                                >
+                                  Reject
+                                </button>
+                              </>
+                            )}
+                            {product.status === 'active' && (
+                              <button
+                                onClick={() => handleDeactivateProduct(product)}
+                                className="text-yellow-600 hover:text-yellow-900 transition-colors duration-150 font-medium"
+                              >
+                                Deactivate
+                              </button>
+                            )}
+                            {product.status === 'inactive' && (
+                              <button
+                                onClick={() => handleActivateProduct(product)}
+                                className="text-green-600 hover:text-green-900 transition-colors duration-150 font-medium"
+                              >
+                                Activate
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleDeleteClick(product)}
+                              className="text-red-600 hover:text-red-900 transition-colors duration-150 font-medium"
+                            >
+                              Delete
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => handleEditProduct(product)}
+                              className="text-primary-600 hover:text-primary-900 transition-colors duration-150 font-medium"
+                            >
+                              Edit
+                            </button>
+                            {user?.accessLevel === 1 && product.status === 'active' && (
+                              <button
+                                onClick={() => handleDeactivateClick(product)}
+                                className="text-yellow-600 hover:text-yellow-900 transition-colors duration-150 font-medium"
+                              >
+                                Deactivate
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleDeleteClick(product)}
+                              className="text-red-600 hover:text-red-900 transition-colors duration-150 font-medium"
+                            >
+                              Delete
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </motion.tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </motion.div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-        className="bg-blue-50 border border-blue-200 rounded-lg p-4"
-      >
-        <div className="flex">
-          <div className="flex-shrink-0">
-            <svg className="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-            </svg>
-          </div>
-          <div className="ml-3">
-            <h3 className="text-sm font-medium text-blue-800">
-              Product Status Information
-            </h3>
-            <div className="mt-2 text-sm text-blue-700">
-              <ul className="list-disc list-inside space-y-1">
-                <li><strong>Active:</strong> Product is available and ready for use</li>
-                <li><strong>Pending:</strong> Product is being reviewed or configured</li>
-                <li><strong>Disabled:</strong> Product is temporarily unavailable</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </motion.div>
+        <ProductModal
+          isOpen={isModalOpen}
+          onClose={handleModalClose}
+          onSubmit={editingProduct ? handleUpdateProduct : handleCreateProduct}
+          product={editingProduct}
+          isLoading={createProductMutation.isPending || updateProductMutation.isPending}
+          clientId={app?.clientId}
+        />
 
-      <ProductModal
-        isOpen={isModalOpen}
-        onClose={handleModalClose}
-        onSubmit={editingProduct ? handleUpdateProduct : handleCreateProduct}
-        product={editingProduct}
-        isLoading={createProductMutation.isPending || updateProductMutation.isPending}
-      />
+        <ApprovalModal
+          isOpen={isApprovalModalOpen}
+          onClose={() => {
+            setIsApprovalModalOpen(false)
+            setProductToApprove(null)
+          }}
+          onSubmit={handleApprovalSubmit}
+          product={productToApprove}
+          isLoading={approveProductMutation.isPending}
+        />
 
       <ConfirmDialog
         isOpen={isDeleteDialogOpen}
         onClose={() => {
           setIsDeleteDialogOpen(false)
           setProductToDelete(null)
+          setDeleteAction('delete')
         }}
-        onConfirm={handleDeleteProduct}
-        title="Delete Product"
-        message={`Are you sure you want to delete "${productToDelete?.name}"? This action cannot be undone.`}
-        confirmText="Delete"
+        onConfirm={deleteAction === 'delete' ? handleDeleteProduct : handleDeactivatePair}
+        title={deleteAction === 'delete' ? "Delete Product" : "Deactivate Product"}
+        message={deleteAction === 'delete' 
+          ? `Are you sure you want to delete "${productToDelete?.name}"? This action cannot be undone.`
+          : `Are you sure you want to deactivate "${productToDelete?.name}"? This will disable the product pairing.`
+        }
+        confirmText={deleteAction === 'delete' ? "Delete" : "Deactivate"}
         cancelText="Cancel"
         type="danger"
-        isLoading={deleteProductMutation.isPending}
+        isLoading={deleteAction === 'delete' ? deleteProductMutation.isPending : deactivatePairMutation.isPending}
       />
     </div>
   )

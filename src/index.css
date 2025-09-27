@@ -190,7 +190,7 @@
   }
 
   .form-help {
-    @apply text-sm text-gray-500 mt-1;
+    @apply text-sm text-gray-600 mt-1;
   }
 
   .loading-spinner {
@@ -225,5 +225,33 @@
       opacity: 1;
       transform: translateY(0);
     }
+  }
+
+  .table-enhanced {
+    @apply border border-gray-300;
+  }
+
+  .table-enhanced thead {
+    @apply bg-gray-100;
+  }
+
+  .table-enhanced th {
+    @apply border-b border-gray-300 font-bold text-gray-900;
+  }
+
+  .table-enhanced tbody tr {
+    @apply border-b border-gray-300;
+  }
+
+  .table-enhanced tbody tr:hover {
+    @apply bg-gray-50;
+  }
+
+  .text-enhanced {
+    @apply text-gray-800;
+  }
+
+  .text-secondary-enhanced {
+    @apply text-gray-700;
   }
 }

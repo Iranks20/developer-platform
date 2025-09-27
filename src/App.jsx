@@ -5,6 +5,7 @@ import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
 import DashboardPage from './pages/DashboardPage'
 import AppDashboardPage from './pages/AppDashboardPage'
+import AdminDashboardPage from './pages/AdminDashboardPage'
 import DocsPage from './pages/DocsPage'
 import LoadingSpinner from './components/LoadingSpinner'
 
@@ -29,21 +30,34 @@ const AppRoutes = () => {
     return <LoadingSpinner />
   }
   
+  const getDefaultRoute = () => {
+    if (!user) return "/login"
+    return user.accessLevel === 2 ? "/admin" : "/dashboard"
+  }
+  
   return (
     <Routes>
       <Route 
         path="/login" 
-        element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />} 
+        element={user ? <Navigate to={getDefaultRoute()} replace /> : <LoginPage />} 
       />
       <Route 
         path="/signup" 
-        element={user ? <Navigate to="/dashboard" replace /> : <SignupPage />} 
+        element={user ? <Navigate to={getDefaultRoute()} replace /> : <SignupPage />} 
       />
       <Route 
         path="/dashboard" 
         element={
           <ProtectedRoute>
-            <DashboardPage />
+            {user?.accessLevel === 2 ? <Navigate to="/admin" replace /> : <DashboardPage />}
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/admin" 
+        element={
+          <ProtectedRoute>
+            {user?.accessLevel !== 2 ? <Navigate to="/dashboard" replace /> : <AdminDashboardPage />}
           </ProtectedRoute>
         } 
       />
@@ -63,7 +77,7 @@ const AppRoutes = () => {
           </ProtectedRoute>
         } 
       />
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/" element={<Navigate to={getDefaultRoute()} replace />} />
     </Routes>
   )
 }

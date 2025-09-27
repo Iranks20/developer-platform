@@ -1,5 +1,18 @@
 const API_BASE = 'https://openapi.qa.gwiza.co'
 
+const getAuthHeaders = () => {
+  const user = JSON.parse(localStorage.getItem('portal_user') || '{}');
+  if (user.token) {
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${user.token}`
+    };
+  }
+  return {
+    'Content-Type': 'application/json'
+  };
+};
+
 // Fallback in-memory store for when MSW is not working
 let fallbackApps = [
   {
@@ -69,9 +82,17 @@ export const appsApi = {
   getAll: async (userId) => {
     try {
       console.log('Attempting to fetch apps from API for user:', userId)
-      const response = await fetch(`${API_BASE}/auth/oauth2/client/byuser/${userId}`)
+      
+      let endpoint = `${API_BASE}/auth/oauth2/client/byuser/${userId}`
+      if (userId === 'admin-all-users') {
+        endpoint = `${API_BASE}/auth/oauth2/client`
+      }
+      
+      const response = await fetch(endpoint, {
+        headers: getAuthHeaders()
+      })
       if (!response.ok) {
-        throw new Error('Failed to fetch applications')
+        throw new Error(`Failed to fetch applications: ${response.status} ${response.statusText}`)
       }
       const data = await response.json()
       console.log('API response:', data)
@@ -86,7 +107,10 @@ export const appsApi = {
           clientEnv: app.client_env,
           createdAt: app.created_at,
           clientId: app.client_id,
-          clientSecret: 'hidden'
+          clientSecret: 'hidden',
+          userAccountId: app.user_account_id || 'unknown',
+          redirectUri: app.redirect_uri,
+          public: app.public
         }))
       }
       
@@ -95,6 +119,42 @@ export const appsApi = {
       console.log('API not available, using fallback data:', error.message)
       console.log('Fallback apps:', fallbackApps)
       return fallbackApps
+    }
+  },
+
+  getAllAdmin: async () => {
+    try {
+      console.log('Attempting to fetch all apps from API for admin')
+      const response = await fetch(`${API_BASE}/auth/oauth2/client`, {
+        headers: getAuthHeaders()
+      })
+      if (!response.ok) {
+        throw new Error(`Failed to fetch all applications for admin: ${response.status} ${response.statusText}`)
+      }
+      const data = await response.json()
+      console.log('Admin API response:', data)
+
+      if (data.success && data.data) {
+        return data.data.map(app => ({
+          id: app.client_id,
+          name: app.client_name,
+          description: app.client_description || 'No description provided',
+          status: app.client_env === 'PDN' ? 'live' : 'test',
+          clientStatus: app.client_status,
+          clientEnv: app.client_env,
+          createdAt: app.created_at,
+          clientId: app.client_id,
+          clientSecret: 'hidden',
+          userAccountId: app.user_account_id || 'unknown',
+          redirectUri: app.redirect_uri,
+          public: app.public
+        }))
+      }
+
+      return []
+    } catch (error) {
+      console.error('Error fetching all applications for admin:', error)
+      throw error
     }
   },
 
@@ -298,34 +358,58 @@ export const appsApi = {
     }
   },
 
-  regenerateKeys: async (id) => {
+  regenerateKeys: async (clientId) => {
     try {
-      const response = await fetch(`${API_BASE}/apps/${id}/keys/regenerate`, {
+      console.log('Regenerating keys for client ID:', clientId)
+      const response = await fetch(`${API_BASE}/auth/oauth2/client/rotate-keys`, {
         method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          client_id: clientId,
+          reason: "operator requested"
+        }),
       })
       if (!response.ok) {
         throw new Error('Failed to regenerate keys')
       }
-      return response.json()
+      const data = await response.json()
+      console.log('Regenerate keys response:', data)
+      
+      if (data.success && data.data) {
+        return {
+          clientId: data.data.client_id,
+          publicKey: data.data.publicKeyPem,
+          success: data.success,
+          message: data.resp_msg
+        }
+      }
+      
+      throw new Error('Invalid response format')
     } catch (error) {
-      console.log('MSW not available, using fallback key regeneration')
-      const app = fallbackApps.find(a => a.id === id)
+      console.log('API not available, using fallback key regeneration:', error.message)
+      const app = fallbackApps.find(a => a.id === clientId)
       if (!app) {
         throw new Error('Application not found')
       }
-      app.clientSecret = generateClientSecret(app.status)
-      return { clientSecret: app.clientSecret }
+      return {
+        clientId: clientId,
+        publicKey: `-----BEGIN PUBLIC KEY-----\n${Math.random().toString(36).substr(2, 50)}\n-----END PUBLIC KEY-----`,
+        success: true,
+        message: "Keys regenerated successfully (fallback)"
+      }
     }
   },
 
   regenerateSecret: async (clientId) => {
     try {
       console.log('Regenerating secret for client ID:', clientId)
-      const response = await fetch(`${API_BASE}/auth/oauth2/client/${clientId}/regenerate-secret`, {
+      const response = await fetch(`${API_BASE}/auth/oauth2/client/rotate-secret`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          client_id: clientId,
+          reason: "operator requested"
+        }),
       })
       if (!response.ok) {
         throw new Error('Failed to regenerate client secret')
@@ -335,7 +419,13 @@ export const appsApi = {
       
       if (data.success && data.data) {
         return {
-          clientSecret: data.data.client_secret
+          clientSecret: data.data.client_secret,
+          clientId: data.data.client_id,
+          clientName: data.data.client_name,
+          secretVersion: data.data.secret_version,
+          secretRotatedAt: data.data.secret_rotated_at,
+          success: data.success,
+          message: data.resp_msg
         }
       }
       
@@ -348,7 +438,15 @@ export const appsApi = {
       }
       const newSecret = generateClientSecret(app.status)
       app.clientSecret = newSecret
-      return { clientSecret: newSecret }
+      return { 
+        clientSecret: newSecret,
+        clientId: clientId,
+        clientName: app.name,
+        secretVersion: 1,
+        secretRotatedAt: new Date().toISOString(),
+        success: true,
+        message: 'Secret regenerated successfully (fallback)'
+      }
     }
   },
 }
