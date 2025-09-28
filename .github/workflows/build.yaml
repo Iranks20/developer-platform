@@ -37,3 +37,11 @@ jobs:
           docker tag $IMAGE_NAME:latest ghcr.io/mvend/gwiza_openapi_ui/$IMAGE_NAME:$RELEASE_VERSION
           docker push ghcr.io/mvend/gwiza_openapi_ui/$IMAGE_NAME:$RELEASE_VERSION
 
+      - name: Deploy to QA Environment
+        uses: actions-hub/kubectl@master
+        env:
+          KUBE_CONFIG: ${{ secrets.DO_KUBECONFIG }}
+          RELEASE_VERSION: ${{ steps.short-sha.outputs.sha }}
+        with:
+          args: set image deployment gwiza-openapi-ui gwiza-openapi-ui=ghcr.io/mvend/gwiza_openapi_ui/${{ env.IMAGE_NAME }}:${{ env.RELEASE_VERSION }} --namespace=microservices
+
