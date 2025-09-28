@@ -1,4 +1,6 @@
-const API_BASE = 'https://openapi.qa.gwiza.co'
+import { API_CONFIG } from '../config/environment'
+
+const API_BASE = API_CONFIG.BASE_URL
 
 const getAuthHeaders = () => {
   const user = JSON.parse(localStorage.getItem('portal_user') || '{}');

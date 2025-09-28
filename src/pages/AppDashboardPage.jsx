@@ -8,7 +8,6 @@ import Header from '../components/Header'
 import Sidebar from '../components/Sidebar'
 import AppOverview from '../components/AppOverview'
 import ProductStatus from '../components/ProductStatus'
-import Countries from '../components/Countries'
 import ApiDocs from '../components/ApiDocs'
 import LoadingSpinner from '../components/LoadingSpinner'
 
@@ -108,8 +107,6 @@ const AppDashboardPage = () => {
         )
       case 'products':
         return <ProductStatus app={app} />
-      case 'countries':
-        return <Countries />
       case 'docs':
         return <ApiDocs />
       default:
@@ -128,11 +125,12 @@ const AppDashboardPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header user={user} onLogout={logout} />
+      <Header user={user} onLogout={logout} hideTitle={true} />
       
       <div className="flex">
         <Sidebar
           app={app}
+          user={user}
           activeTab={activeTab}
           onTabChange={setActiveTab}
         />

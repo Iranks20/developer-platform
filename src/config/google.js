@@ -1,6 +1,6 @@
+// Google OAuth Configuration
 export const GOOGLE_CONFIG = {
-  // Direct credentials for testing - replace with env vars in production
-  clientId: '1014126568369-l9moqqlcka953cjui6fqt7alf0o0qkli.apps.googleusercontent.com',
+  clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID || '',
   redirectUri: window.location.origin,
   scopes: [
     'openid',

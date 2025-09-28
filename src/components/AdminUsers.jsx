@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Modal from './Modal'
 import LoadingSpinner from './LoadingSpinner'
+import userAccountsApi from '../api/userAccounts'
 
 const AdminUsers = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -12,51 +13,16 @@ const AdminUsers = () => {
   const [filterStatus, setFilterStatus] = useState('all')
   const queryClient = useQueryClient()
 
-  const mockUsers = [
-    {
-      id: '1',
-      name: 'John Doe',
-      email: 'john.doe@example.com',
-      accessLevel: 1,
-      status: 'active',
-      createdAt: '2024-01-15T10:30:00Z',
-      lastLoginAt: '2024-01-20T14:22:00Z',
-      avatar: 'https://ui-avatars.com/api/?name=John+Doe&background=3b82f6&color=fff'
-    },
-    {
-      id: '2',
-      name: 'Jane Smith',
-      email: 'jane.smith@example.com',
-      accessLevel: 2,
-      status: 'active',
-      createdAt: '2024-01-10T09:15:00Z',
-      lastLoginAt: '2024-01-21T08:45:00Z',
-      avatar: 'https://ui-avatars.com/api/?name=Jane+Smith&background=10b981&color=fff'
-    },
-    {
-      id: '3',
-      name: 'Bob Johnson',
-      email: 'bob.johnson@example.com',
-      accessLevel: 1,
-      status: 'inactive',
-      createdAt: '2024-01-05T16:20:00Z',
-      lastLoginAt: '2024-01-18T11:30:00Z',
-      avatar: 'https://ui-avatars.com/api/?name=Bob+Johnson&background=f59e0b&color=fff'
-    }
-  ]
-
-  const { data: users = mockUsers, isLoading } = useQuery({
+  const { data: users = [], isLoading } = useQuery({
     queryKey: ['admin-users'],
-    queryFn: async () => {
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      return mockUsers
-    }
+    queryFn: () => userAccountsApi.getAll(),
+    retry: 3,
+    staleTime: 5 * 60 * 1000,
   })
 
   const createUserMutation = useMutation({
     mutationFn: async (userData) => {
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      return { id: Date.now().toString(), ...userData }
+      throw new Error('Create user functionality not implemented in API')
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['admin-users'])
@@ -66,8 +32,7 @@ const AdminUsers = () => {
 
   const updateUserMutation = useMutation({
     mutationFn: async ({ id, data }) => {
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      return { id, ...data }
+      return userAccountsApi.update(id, data)
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['admin-users'])
@@ -78,8 +43,7 @@ const AdminUsers = () => {
 
   const deleteUserMutation = useMutation({
     mutationFn: async (id) => {
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      return id
+      throw new Error('Delete user functionality not implemented in API')
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['admin-users'])
@@ -107,10 +71,20 @@ const AdminUsers = () => {
   }
 
   const getStatusColor = (status) => {
-    return status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+    switch (status?.toLowerCase()) {
+      case 'active':
+        return 'bg-green-100 text-green-800'
+      case 'new':
+        return 'bg-blue-100 text-blue-800'
+      case 'inactive':
+        return 'bg-gray-100 text-gray-800'
+      default:
+        return 'bg-gray-100 text-gray-800'
+    }
   }
 
   const formatDate = (dateString) => {
+    if (!dateString) return 'Never'
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
@@ -126,9 +100,7 @@ const AdminUsers = () => {
   }
 
   const handleDeleteUser = (userId) => {
-    if (window.confirm('Are you sure you want to delete this user?')) {
-      deleteUserMutation.mutate(userId)
-    }
+    alert('User deletion functionality is not available through the current API. Please contact system administrators for user deletion requests.')
   }
 
   if (isLoading) {
@@ -163,6 +135,7 @@ const AdminUsers = () => {
             {[
               { key: 'all', label: 'All Users', count: getStatusCount('all') },
               { key: 'active', label: 'Active', count: getStatusCount('active') },
+              { key: 'new', label: 'New', count: getStatusCount('new') },
               { key: 'inactive', label: 'Inactive', count: getStatusCount('inactive') }
             ].map((tab) => (
               <button
@@ -250,7 +223,7 @@ const AdminUsers = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">
-                    {formatDate(user.lastLoginAt)}
+                    {user.lastLoginAt ? formatDate(user.lastLoginAt) : 'Never'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">
                     {formatDate(user.createdAt)}
@@ -321,99 +294,32 @@ const AdminUsers = () => {
 }
 
 const CreateUserModal = ({ isOpen, onClose, onSubmit, isLoading }) => {
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    accessLevel: 1,
-    status: 'active'
-  })
-
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    onSubmit(formData)
-  }
-
   const handleClose = () => {
-    setFormData({ name: '', email: '', accessLevel: 1, status: 'active' })
     onClose()
   }
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="Create New User" size="md">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Full Name
-          </label>
-          <input
-            type="text"
-            required
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            className="input-field"
-            placeholder="Enter full name"
-          />
+      <div className="text-center py-8">
+        <div className="w-16 h-16 mx-auto mb-4 bg-yellow-100 rounded-full flex items-center justify-center">
+          <svg className="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+          </svg>
         </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Email Address
-          </label>
-          <input
-            type="email"
-            required
-            value={formData.email}
-            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-            className="input-field"
-            placeholder="Enter email address"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Access Level
-          </label>
-          <select
-            value={formData.accessLevel}
-            onChange={(e) => setFormData({ ...formData, accessLevel: parseInt(e.target.value) })}
-            className="input-field"
-          >
-            <option value={1}>User</option>
-            <option value={2}>Admin</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Status
-          </label>
-          <select
-            value={formData.status}
-            onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-            className="input-field"
-          >
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
-        </div>
-
-        <div className="flex justify-end space-x-3 pt-4">
-          <button type="button" onClick={handleClose} className="btn-secondary">
-            Cancel
-          </button>
-          <button type="submit" disabled={isLoading} className="btn-primary">
-            {isLoading ? 'Creating...' : 'Create User'}
-          </button>
-        </div>
-      </form>
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">User Creation Not Available</h3>
+        <p className="text-gray-600 mb-6">
+          User creation functionality is not available through the current API. Users must be created through the registration process or by administrators using other means.
+        </p>
+        <button onClick={handleClose} className="btn-primary">
+          Close
+        </button>
+      </div>
     </Modal>
   )
 }
 
 const EditUserModal = ({ isOpen, onClose, user, onSubmit, isLoading }) => {
   const [formData, setFormData] = useState({
-    name: user?.name || '',
-    email: user?.email || '',
     accessLevel: user?.accessLevel || 1,
     status: user?.status || 'active'
   })
@@ -421,10 +327,8 @@ const EditUserModal = ({ isOpen, onClose, user, onSubmit, isLoading }) => {
   React.useEffect(() => {
     if (user) {
       setFormData({
-        name: user.name,
-        email: user.email,
         accessLevel: user.accessLevel,
-        status: user.status
+        status: user.status || 'active'
       })
     }
   }, [user])
@@ -436,72 +340,57 @@ const EditUserModal = ({ isOpen, onClose, user, onSubmit, isLoading }) => {
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Edit User" size="md">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Full Name
-          </label>
-          <input
-            type="text"
-            required
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            className="input-field"
-            placeholder="Enter full name"
-          />
+      <div className="space-y-4">
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <div className="flex items-center space-x-4 mb-4">
+            <img className="h-12 w-12 rounded-full" src={user?.avatar} alt={user?.name} />
+            <div>
+              <div className="text-lg font-medium text-gray-900">{user?.name}</div>
+              <div className="text-sm text-gray-700">{user?.email}</div>
+            </div>
+          </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Email Address
-          </label>
-          <input
-            type="email"
-            required
-            value={formData.email}
-            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-            className="input-field"
-            placeholder="Enter email address"
-          />
-        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Access Level
+            </label>
+            <select
+              value={formData.accessLevel}
+              onChange={(e) => setFormData({ ...formData, accessLevel: parseInt(e.target.value) })}
+              className="input-field"
+            >
+              <option value={1}>User</option>
+              <option value={2}>Admin</option>
+            </select>
+          </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Access Level
-          </label>
-          <select
-            value={formData.accessLevel}
-            onChange={(e) => setFormData({ ...formData, accessLevel: parseInt(e.target.value) })}
-            className="input-field"
-          >
-            <option value={1}>User</option>
-            <option value={2}>Admin</option>
-          </select>
-        </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Status
+            </label>
+            <select
+              value={formData.status}
+              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+              className="input-field"
+            >
+              <option value="active">Active</option>
+              <option value="new">New</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Status
-          </label>
-          <select
-            value={formData.status}
-            onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-            className="input-field"
-          >
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
-        </div>
-
-        <div className="flex justify-end space-x-3 pt-4">
-          <button type="button" onClick={onClose} className="btn-secondary">
-            Cancel
-          </button>
-          <button type="submit" disabled={isLoading} className="btn-primary">
-            {isLoading ? 'Updating...' : 'Update User'}
-          </button>
-        </div>
-      </form>
+          <div className="flex justify-end space-x-3 pt-4">
+            <button type="button" onClick={onClose} className="btn-secondary">
+              Cancel
+            </button>
+            <button type="submit" disabled={isLoading} className="btn-primary">
+              {isLoading ? 'Updating...' : 'Update User'}
+            </button>
+          </div>
+        </form>
+      </div>
     </Modal>
   )
 }

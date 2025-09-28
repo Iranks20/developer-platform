@@ -1,4 +1,6 @@
-const API_BASE = 'https://openapi.qa.gwiza.co';
+import { API_CONFIG } from '../config/environment'
+
+const API_BASE = API_CONFIG.BASE_URL;
 
 const getAuthHeaders = () => {
   const user = JSON.parse(localStorage.getItem('portal_user') || '{}');
@@ -27,7 +29,6 @@ const productPairingApi = {
       }
 
       const data = await response.json();
-      console.log('Add pair API response:', data);
       
       if (data.success && data.data) {
         return {
@@ -51,7 +52,6 @@ const productPairingApi = {
       
       return data;
     } catch (error) {
-      console.error('Error adding product pair:', error);
       throw error;
     }
   },
@@ -74,7 +74,6 @@ const productPairingApi = {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error('Error updating product pair:', error);
       throw error;
     }
   },
@@ -91,7 +90,6 @@ const productPairingApi = {
       }
 
       const data = await response.json();
-      console.log('Product pairs API response:', data);
       
       if (data.success && data.data && Array.isArray(data.data)) {
         return data.data.map(pair => ({
@@ -99,7 +97,7 @@ const productPairingApi = {
           name: pair.mvd_api_scopes?.scope_group_name || 'Unknown Product',
           description: pair.mvd_api_scopes?.scope_group_name || 'No description provided',
           status: pair.assignment_status || 'inactive',
-          type: 'product_pair',
+          type: 'product pair',
           scope_group_id: pair.scope_group_id,
           country_id: pair.country_id,
           call_back_url: pair.call_back_url,
@@ -108,13 +106,12 @@ const productPairingApi = {
           client_id: pair.client_id,
           product_name: pair.mvd_api_scopes?.scope_group_name,
           country_name: pair.mvd_opcos?.name,
-          country_alpha3: pair.mvd_opcos?.alpha3Code
+          country_alpha3: pair.mvd_opcos?.alpha3_code
         }));
       }
       
       return [];
     } catch (error) {
-      console.error('Error fetching product pairs:', error);
       return [];
     }
   },
@@ -134,7 +131,6 @@ const productPairingApi = {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error('Error removing product pair:', error);
       throw error;
     }
   },
@@ -154,7 +150,6 @@ const productPairingApi = {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error('Error deactivating product pair:', error);
       throw error;
     }
   },
@@ -175,7 +170,6 @@ const productPairingApi = {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error('Error approving product:', error);
       throw error;
     }
   },
@@ -195,7 +189,6 @@ const productPairingApi = {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error('Error rejecting product:', error);
       throw error;
     }
   },
@@ -215,7 +208,6 @@ const productPairingApi = {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error('Error activating product:', error);
       throw error;
     }
   },
@@ -235,7 +227,6 @@ const productPairingApi = {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error('Error deactivating product:', error);
       throw error;
     }
   },
@@ -259,7 +250,6 @@ const productPairingApi = {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error('Error approving product pair:', error);
       throw error;
     }
   }

@@ -64,7 +64,7 @@ const AdminDashboardPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header user={user} onLogout={logout} />
+      <Header user={user} onLogout={logout} hideTitle={true} />
       
       <div className="flex">
         <AdminSidebar

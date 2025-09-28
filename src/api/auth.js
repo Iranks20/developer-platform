@@ -1,4 +1,6 @@
-const API_BASE = 'https://openapi.qa.gwiza.co'
+import { API_CONFIG } from '../config/environment'
+
+const API_BASE = API_CONFIG.BASE_URL
 
 export const authApi = {
   login: async (email, password) => {
@@ -41,7 +43,6 @@ export const authApi = {
       
       return data
     } catch (error) {
-      console.error('Login API Error:', error)
       throw new Error(error.message || 'Login failed')
     }
   },
@@ -83,7 +84,6 @@ export const authApi = {
       
       return data
     } catch (error) {
-      console.error('Signup API Error:', error)
       throw new Error(error.message || 'Signup failed')
     }
   },
@@ -106,7 +106,6 @@ export const authApi = {
       const data = await response.json()
       return data
     } catch (error) {
-      console.error('Auth API Error:', error)
       
       if (otp === '123456') {
         return {
@@ -125,7 +124,6 @@ export const authApi = {
 
   googleSignIn: async (idToken) => {
     try {
-      console.log('🚀 Google Sign-In Request to:', `${API_BASE}/auth/google`)
       
       const response = await fetch(`${API_BASE}/auth/google`, {
         method: 'POST',
@@ -143,7 +141,6 @@ export const authApi = {
       const data = await response.json()
       return data
     } catch (error) {
-      console.error('Google Auth API Error:', error)
       
       // Fallback for development when backend is not ready
       const payload = JSON.parse(atob(idToken.split('.')[1]))
@@ -161,7 +158,6 @@ export const authApi = {
 
   googleSignUp: async (idToken) => {
     try {
-      console.log('🚀 Google Sign-Up Request to:', `${API_BASE}/auth/google/signup`)
       
       const response = await fetch(`${API_BASE}/auth/google/signup`, {
         method: 'POST',
@@ -179,7 +175,6 @@ export const authApi = {
       const data = await response.json()
       return data
     } catch (error) {
-      console.error('Google Signup API Error:', error)
       
       // Fallback for development when backend is not ready
       const payload = JSON.parse(atob(idToken.split('.')[1]))
