@@ -6,10 +6,10 @@ export default defineConfig({
   server: {
     port: 3001,
     host: true,
-    allowedHosts: ["developer.gwiza.tech"], // Allow specific hosts
+    allowedHosts: ["developer.qa.gwiza.co", "developer.gwiza.tech"], // Allow specific hosts
   },
   preview: {
     host: true,
-    allowedHosts: ["developer.gwiza.tech"], // Allow specific hosts
+    allowedHosts: ["developer.qa.gwiza.co", "developer.gwiza.tech"], // Allow specific hosts
   },
 })
