@@ -26,7 +26,15 @@ const LoginPage = () => {
       const response = await authApi.login(formData.email, formData.password)
       
       if (response.user) {
-        login(response.user)
+        // Store both user data and token
+        const userWithToken = {
+          ...response.user,
+          token: response.token,
+          tokenType: response.tokenType,
+          expiresIn: response.expiresIn,
+          scope: response.scope
+        }
+        login(userWithToken)
         navigate('/dashboard')
       } else {
         setError('Login failed. Please check your credentials.')

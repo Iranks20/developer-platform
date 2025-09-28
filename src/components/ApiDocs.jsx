@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { docsApi } from '../api/docs'
@@ -12,6 +12,12 @@ const ApiDocs = () => {
     queryKey: ['docs'],
     queryFn: docsApi.getApis,
   })
+
+  useEffect(() => {
+    if (docsData?.apis && docsData.apis.length > 0 && !selectedApi) {
+      setSelectedApi(docsData.apis[0])
+    }
+  }, [docsData, selectedApi])
 
   if (isLoading) {
     return (

@@ -96,9 +96,9 @@ const AppCard = ({ app, onDelete, viewMode = 'grid', onViewApp }) => {
                 <div className="text-xs">{formatDate(app.createdAt)}</div>
               </div>
               <div className="text-right">
-                <div className="font-medium text-gray-900">App ID</div>
-                <div className="text-xs font-mono truncate max-w-20" title={app.clientId}>
-                  {app.clientId}
+                <div className="font-medium text-gray-900">Environment</div>
+                <div className="text-xs truncate max-w-20" title={app.clientEnv}>
+                  {app.clientEnv || 'N/A'}
                 </div>
               </div>
             </div>
@@ -210,17 +210,33 @@ const AppCard = ({ app, onDelete, viewMode = 'grid', onViewApp }) => {
               exit={{ opacity: 0, scale: 0.95, y: -10 }}
               className="absolute right-0 mt-2 w-52 bg-white rounded-card shadow-lg py-2 z-10 border border-gray-200"
             >
-              <Link
-                to={`/app/${app.id}`}
-                className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                <svg className="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-                View Details
-              </Link>
+              {onViewApp ? (
+                <button
+                  onClick={() => {
+                    onViewApp(app)
+                    setIsMenuOpen(false)
+                  }}
+                  className="flex items-center w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <svg className="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                  View Details
+                </button>
+              ) : (
+                <Link
+                  to={`/app/${app.id}`}
+                  className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <svg className="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                  View Details
+                </Link>
+              )}
               <button
                 onClick={() => {
                   onDelete()
@@ -247,9 +263,9 @@ const AppCard = ({ app, onDelete, viewMode = 'grid', onViewApp }) => {
 
       <div className="grid grid-cols-2 gap-4 text-sm mb-6">
         <div className="flex flex-col">
-          <span className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">API ID</span>
-          <span className="font-mono text-gray-800 truncate" title={app.clientId}>
-            {app.clientId}
+          <span className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">ENVIRONMENT</span>
+          <span className="text-gray-800 truncate" title={app.clientEnv}>
+            {app.clientEnv || 'N/A'}
           </span>
         </div>
         <div className="flex flex-col">
@@ -261,16 +277,29 @@ const AppCard = ({ app, onDelete, viewMode = 'grid', onViewApp }) => {
       </div>
 
       <div className="mt-auto">
-        <Link
-          to={`/app/${app.id}`}
-          className="block w-full text-center btn-primary text-sm"
-        >
-          <svg className="w-4 h-4 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-          Manage Application
-        </Link>
+        {onViewApp ? (
+          <button
+            onClick={() => onViewApp(app)}
+            className="block w-full text-center btn-primary text-sm"
+          >
+            <svg className="w-4 h-4 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Manage Application
+          </button>
+        ) : (
+          <Link
+            to={`/app/${app.id}`}
+            className="block w-full text-center btn-primary text-sm"
+          >
+            <svg className="w-4 h-4 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Manage Application
+          </Link>
+        )}
       </div>
     </motion.div>
   )

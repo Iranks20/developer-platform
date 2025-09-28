@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { Link, useLocation } from 'react-router-dom'
 
-const Header = ({ user, onLogout }) => {
+const Header = ({ user, onLogout, hideTitle = false }) => {
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const location = useLocation()
@@ -22,7 +22,6 @@ const Header = ({ user, onLogout }) => {
   }, [])
 
   const navigation = [
-    { name: 'Home', href: '/dashboard', current: location.pathname === '/dashboard' },
     { name: 'My Applications', href: '/dashboard', current: location.pathname === '/dashboard' },
     { name: 'API Docs', href: '/docs', current: location.pathname === '/docs' },
   ]
@@ -38,7 +37,9 @@ const Header = ({ user, onLogout }) => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
                 </svg>
               </div>
-              <span className="text-2xl font-bold text-gray-800 font-heading">Developer Portal</span>
+              {!hideTitle && (
+                <span className="text-2xl font-bold text-gray-800 font-heading">Developer Portal</span>
+              )}
             </Link>
           </div>
 

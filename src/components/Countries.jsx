@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import countriesApi from '../api/countries';
 import CountryModal from './CountryModal';
-import ConfirmDialog from './ConfirmDialog';
+import CountryViewModal from './CountryViewModal';
 import LoadingSpinner from './LoadingSpinner';
 
 const Countries = () => {
@@ -14,7 +14,8 @@ const Countries = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCountry, setEditingCountry] = useState(null);
-  const [deleteDialog, setDeleteDialog] = useState({ isOpen: false, country: null });
+  const [viewModalOpen, setViewModalOpen] = useState(false);
+  const [viewingCountry, setViewingCountry] = useState(null);
 
   // Fetch countries based on user access level
   const {
@@ -31,7 +32,7 @@ const Countries = () => {
     return countries.filter(country =>
       country.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       country.alpha2Code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      country.alpha3Code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      country.alpha3_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
       country.currency.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [countries, searchTerm]);
@@ -60,15 +61,11 @@ const Countries = () => {
     }
   });
 
-  const deleteCountryMutation = useMutation({
-    mutationFn: countriesApi.delete,
-    onSuccess: () => {
-      queryClient.invalidateQueries(['countries', user?.accessLevel]);
-      setDeleteDialog({ isOpen: false, country: null });
-    },
-    onError: (error) => {
-      console.error('Error deleting country:', error);
-    }
+  // Query for fetching individual country details
+  const { data: countryDetails, isLoading: countryDetailsLoading } = useQuery({
+    queryKey: ['country-details', viewingCountry?.id],
+    queryFn: () => countriesApi.getCountryDetails(viewingCountry.id),
+    enabled: !!viewingCountry?.id && viewModalOpen
   });
 
   const handleCreateCountry = (countryData) => {
@@ -81,10 +78,6 @@ const Countries = () => {
     }
   };
 
-  const handleDeleteCountry = (country) => {
-    deleteCountryMutation.mutate(country.id);
-  };
-
   const handleEditCountry = (country) => {
     setEditingCountry(country);
     setIsModalOpen(true);
@@ -95,14 +88,14 @@ const Countries = () => {
     setEditingCountry(null);
   };
 
-  const handleDeleteClick = (country) => {
-    setDeleteDialog({ isOpen: true, country });
+  const handleViewCountry = (country) => {
+    setViewingCountry(country);
+    setViewModalOpen(true);
   };
 
-  const handleDeleteConfirm = () => {
-    if (deleteDialog.country) {
-      handleDeleteCountry(deleteDialog.country);
-    }
+  const handleCloseViewModal = () => {
+    setViewModalOpen(false);
+    setViewingCountry(null);
   };
 
   const getStatusColor = (status) => {
@@ -133,7 +126,7 @@ const Countries = () => {
           </svg>
         </div>
         <h3 className="text-lg font-medium text-gray-900 mb-2">Error Loading Countries</h3>
-        <p className="text-gray-500">{countriesError.message}</p>
+        <p className="text-gray-700">{countriesError.message}</p>
       </div>
     );
   }
@@ -144,23 +137,21 @@ const Countries = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Countries</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-gray-700">
             Manage country information and settings
           </p>
         </div>
-        {user?.accessLevel === 2 && (
-          <div className="mt-4 sm:mt-0">
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              <svg className="-ml-1 mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Add Country
-            </button>
-          </div>
-        )}
+        <div className="mt-4 sm:mt-0">
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            <svg className="-ml-1 mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add Country
+          </button>
+        </div>
       </div>
 
       {/* Search */}
@@ -175,11 +166,11 @@ const Countries = () => {
           placeholder="Search countries..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+          className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-600 focus:outline-none focus:placeholder-gray-500 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
         />
       </div>
 
-      {/* Countries Grid */}
+      {/* Countries Table */}
       {filteredCountries.length === 0 ? (
         <div className="text-center py-12">
           <div className="text-gray-400 mb-4">
@@ -188,10 +179,10 @@ const Countries = () => {
             </svg>
           </div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">No countries found</h3>
-          <p className="text-gray-500 mb-6">
+          <p className="text-gray-700 mb-6">
             {searchTerm ? 'Try adjusting your search terms.' : 'Get started by adding a new country.'}
           </p>
-          {!searchTerm && user?.accessLevel === 2 && (
+          {!searchTerm && (
             <div className="mt-6">
               <button
                 onClick={() => setIsModalOpen(true)}
@@ -206,85 +197,105 @@ const Countries = () => {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredCountries.map((country, index) => (
-            <motion.div
-              key={country.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: index * 0.1 }}
-              className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200"
-            >
-              <div className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3">
-                      <div className="flex-shrink-0">
-                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                          <span className="text-lg font-semibold text-blue-600">
-                            {country.alpha2Code}
-                          </span>
+        <div className="bg-white shadow-sm rounded-lg border border-gray-300 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-300">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">
+                    Country
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">
+                    Codes
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">
+                    Currency
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">
+                    Calling Code
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-900 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-300">
+                {filteredCountries.map((country, index) => (
+                  <motion.tr
+                    key={country.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: index * 0.05 }}
+                    className="hover:bg-gray-50 transition-colors duration-200"
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-10 w-10">
+                          <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
+                            <span className="text-sm font-semibold text-blue-600">
+                              {country.alpha2Code}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">
+                            {country.name}
+                          </div>
                         </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-lg font-medium text-gray-900 truncate">
-                          {country.name}
-                        </h3>
-                        <p className="text-sm text-gray-500">
-                          {country.alpha3Code}
-                        </p>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-700">
+                        <div className="font-medium">{country.alpha2Code}</div>
+                        <div className="text-gray-500">{country.alpha3_code}</div>
                       </div>
-                    </div>
-                    
-                    <div className="mt-4 space-y-2">
-                      <div className="flex items-center text-sm text-gray-600">
-                        <svg className="flex-shrink-0 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                        </svg>
-                        <span>+{country.callingCode}</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-700 font-medium">
+                        {country.currency}
                       </div>
-                      
-                      <div className="flex items-center text-sm text-gray-600">
-                        <svg className="flex-shrink-0 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                        </svg>
-                        <span>{country.currency}</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-700 font-medium">
+                        +{country.callingCode}
                       </div>
-                    </div>
-                    
-                    <div className="mt-4">
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(country.status)}`}>
                         {country.status}
                       </span>
-                    </div>
-                  </div>
-                  
-                  {user?.accessLevel === 2 && (
-                    <div className="flex flex-col space-y-2 ml-4">
-                      <button
-                        onClick={() => handleEditCountry(country)}
-                        className="text-blue-600 hover:text-blue-800 p-1 rounded"
-                        title="Edit country"
-                      >
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={() => handleDeleteClick(country)}
-                        className="text-red-600 hover:text-red-800 p-1 rounded"
-                        title="Delete country"
-                      >
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </motion.div>
-          ))}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => handleViewCountry(country)}
+                          className="text-blue-600 hover:text-blue-800 p-1 rounded transition-colors duration-200"
+                          title="View country details"
+                        >
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleEditCountry(country)}
+                          className="text-green-600 hover:text-green-800 p-1 rounded transition-colors duration-200"
+                          title="Edit country"
+                        >
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                      </div>
+                    </td>
+                  </motion.tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -297,14 +308,11 @@ const Countries = () => {
         isLoading={createCountryMutation.isLoading || updateCountryMutation.isLoading}
       />
 
-      <ConfirmDialog
-        isOpen={deleteDialog.isOpen}
-        onClose={() => setDeleteDialog({ isOpen: false, country: null })}
-        onConfirm={handleDeleteConfirm}
-        title="Delete Country"
-        message={`Are you sure you want to delete "${deleteDialog.country?.name}"? This action cannot be undone.`}
-        confirmText="Delete"
-        isLoading={deleteCountryMutation.isLoading}
+      <CountryViewModal
+        isOpen={viewModalOpen}
+        onClose={handleCloseViewModal}
+        country={countryDetails || viewingCountry}
+        isLoading={countryDetailsLoading}
       />
     </div>
   );

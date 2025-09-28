@@ -16,14 +16,18 @@ const CountryModal = ({ isOpen, onClose, onSubmit, country, isLoading = false })
 
   useEffect(() => {
     if (country) {
+      // Capitalize the first letter of status to match select options
+      const capitalizedStatus = country.status ? 
+        country.status.charAt(0).toUpperCase() + country.status.slice(1).toLowerCase() : 'Active';
+      
       setFormData({
         name: country.name || '',
         alpha2Code: country.alpha2Code || '',
         callingCode: country.callingCode || '',
-        alpha3Code: country.alpha3Code || '',
+        alpha3Code: country.alpha3_code || '',
         flag: country.flag || '',
         currency: country.currency || '',
-        status: country.status || 'Active'
+        status: capitalizedStatus
       });
     } else {
       setFormData({
@@ -42,30 +46,35 @@ const CountryModal = ({ isOpen, onClose, onSubmit, country, isLoading = false })
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.name.trim()) {
-      newErrors.name = 'Country name is required';
+    // Only validate fields that are shown in the form
+    if (!country) {
+      // Validation for create mode (all fields required)
+      if (!formData.name.trim()) {
+        newErrors.name = 'Country name is required';
+      }
+
+      if (!formData.alpha2Code.trim()) {
+        newErrors.alpha2Code = 'Alpha 2 code is required';
+      } else if (formData.alpha2Code.length !== 2) {
+        newErrors.alpha2Code = 'Alpha 2 code must be exactly 2 characters';
+      }
+
+      if (!formData.callingCode.trim()) {
+        newErrors.callingCode = 'Calling code is required';
+      }
+
+      if (!formData.alpha3Code.trim()) {
+        newErrors.alpha3Code = 'Alpha 3 code is required';
+      } else if (formData.alpha3Code.length !== 3) {
+        newErrors.alpha3Code = 'Alpha 3 code must be exactly 3 characters';
+      }
+
+      if (!formData.currency.trim()) {
+        newErrors.currency = 'Currency is required';
+      }
     }
 
-    if (!formData.alpha2Code.trim()) {
-      newErrors.alpha2Code = 'Alpha 2 code is required';
-    } else if (formData.alpha2Code.length !== 2) {
-      newErrors.alpha2Code = 'Alpha 2 code must be exactly 2 characters';
-    }
-
-    if (!formData.callingCode.trim()) {
-      newErrors.callingCode = 'Calling code is required';
-    }
-
-    if (!formData.alpha3Code.trim()) {
-      newErrors.alpha3Code = 'Alpha 3 code is required';
-    } else if (formData.alpha3Code.length !== 3) {
-      newErrors.alpha3Code = 'Alpha 3 code must be exactly 3 characters';
-    }
-
-    if (!formData.currency.trim()) {
-      newErrors.currency = 'Currency is required';
-    }
-
+    // Flag is always required (for both create and edit)
     if (!formData.flag.trim()) {
       newErrors.flag = 'Flag is required';
     }
@@ -77,7 +86,12 @@ const CountryModal = ({ isOpen, onClose, onSubmit, country, isLoading = false })
   const handleSubmit = (e) => {
     e.preventDefault();
     if (validateForm()) {
-      onSubmit(formData);
+      // Convert status to lowercase for API submission
+      const submitData = {
+        ...formData,
+        status: formData.status.toLowerCase()
+      };
+      onSubmit(submitData);
     }
   };
 
@@ -105,99 +119,103 @@ const CountryModal = ({ isOpen, onClose, onSubmit, country, isLoading = false })
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title={country ? 'Edit Country' : 'Add New Country'}>
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Country Name */}
-        <div>
-          <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-            Country Name *
-          </label>
-          <input
-            type="text"
-            id="name"
-            value={formData.name}
-            onChange={(e) => handleChange('name', e.target.value)}
-            className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-              errors.name ? 'border-red-300' : 'border-gray-300'
-            }`}
-            placeholder="Enter country name"
-          />
-          {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
-        </div>
+        {!country && (
+          <>
+            {/* Country Name - Only for create */}
+            <div>
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                Country Name *
+              </label>
+              <input
+                type="text"
+                id="name"
+                value={formData.name}
+                onChange={(e) => handleChange('name', e.target.value)}
+                className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                  errors.name ? 'border-red-300' : 'border-gray-300'
+                }`}
+                placeholder="Enter country name"
+              />
+              {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
+            </div>
 
-        {/* Alpha 2 Code */}
-        <div>
-          <label htmlFor="alpha2Code" className="block text-sm font-medium text-gray-700 mb-1">
-            Alpha 2 Code *
-          </label>
-          <input
-            type="text"
-            id="alpha2Code"
-            value={formData.alpha2Code}
-            onChange={(e) => handleChange('alpha2Code', e.target.value.toUpperCase())}
-            className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-              errors.alpha2Code ? 'border-red-300' : 'border-gray-300'
-            }`}
-            placeholder="e.g., RW"
-            maxLength="2"
-          />
-          {errors.alpha2Code && <p className="mt-1 text-sm text-red-600">{errors.alpha2Code}</p>}
-        </div>
+            {/* Alpha 2 Code - Only for create */}
+            <div>
+              <label htmlFor="alpha2Code" className="block text-sm font-medium text-gray-700 mb-1">
+                Alpha 2 Code *
+              </label>
+              <input
+                type="text"
+                id="alpha2Code"
+                value={formData.alpha2Code}
+                onChange={(e) => handleChange('alpha2Code', e.target.value.toUpperCase())}
+                className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                  errors.alpha2Code ? 'border-red-300' : 'border-gray-300'
+                }`}
+                placeholder="e.g., RW"
+                maxLength="2"
+              />
+              {errors.alpha2Code && <p className="mt-1 text-sm text-red-600">{errors.alpha2Code}</p>}
+            </div>
 
-        {/* Alpha 3 Code */}
-        <div>
-          <label htmlFor="alpha3Code" className="block text-sm font-medium text-gray-700 mb-1">
-            Alpha 3 Code *
-          </label>
-          <input
-            type="text"
-            id="alpha3Code"
-            value={formData.alpha3Code}
-            onChange={(e) => handleChange('alpha3Code', e.target.value.toUpperCase())}
-            className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-              errors.alpha3Code ? 'border-red-300' : 'border-gray-300'
-            }`}
-            placeholder="e.g., RWA"
-            maxLength="3"
-          />
-          {errors.alpha3Code && <p className="mt-1 text-sm text-red-600">{errors.alpha3Code}</p>}
-        </div>
+            {/* Alpha 3 Code - Only for create */}
+            <div>
+              <label htmlFor="alpha3Code" className="block text-sm font-medium text-gray-700 mb-1">
+                Alpha 3 Code *
+              </label>
+              <input
+                type="text"
+                id="alpha3Code"
+                value={formData.alpha3Code}
+                onChange={(e) => handleChange('alpha3Code', e.target.value.toUpperCase())}
+                className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                  errors.alpha3Code ? 'border-red-300' : 'border-gray-300'
+                }`}
+                placeholder="e.g., RWA"
+                maxLength="3"
+              />
+              {errors.alpha3Code && <p className="mt-1 text-sm text-red-600">{errors.alpha3Code}</p>}
+            </div>
 
-        {/* Calling Code */}
-        <div>
-          <label htmlFor="callingCode" className="block text-sm font-medium text-gray-700 mb-1">
-            Calling Code *
-          </label>
-          <input
-            type="text"
-            id="callingCode"
-            value={formData.callingCode}
-            onChange={(e) => handleChange('callingCode', e.target.value)}
-            className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-              errors.callingCode ? 'border-red-300' : 'border-gray-300'
-            }`}
-            placeholder="e.g., 250"
-          />
-          {errors.callingCode && <p className="mt-1 text-sm text-red-600">{errors.callingCode}</p>}
-        </div>
+            {/* Calling Code - Only for create */}
+            <div>
+              <label htmlFor="callingCode" className="block text-sm font-medium text-gray-700 mb-1">
+                Calling Code *
+              </label>
+              <input
+                type="text"
+                id="callingCode"
+                value={formData.callingCode}
+                onChange={(e) => handleChange('callingCode', e.target.value)}
+                className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                  errors.callingCode ? 'border-red-300' : 'border-gray-300'
+                }`}
+                placeholder="e.g., 250"
+              />
+              {errors.callingCode && <p className="mt-1 text-sm text-red-600">{errors.callingCode}</p>}
+            </div>
 
-        {/* Currency */}
-        <div>
-          <label htmlFor="currency" className="block text-sm font-medium text-gray-700 mb-1">
-            Currency *
-          </label>
-          <input
-            type="text"
-            id="currency"
-            value={formData.currency}
-            onChange={(e) => handleChange('currency', e.target.value.toUpperCase())}
-            className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-              errors.currency ? 'border-red-300' : 'border-gray-300'
-            }`}
-            placeholder="e.g., RWF"
-          />
-          {errors.currency && <p className="mt-1 text-sm text-red-600">{errors.currency}</p>}
-        </div>
+            {/* Currency - Only for create */}
+            <div>
+              <label htmlFor="currency" className="block text-sm font-medium text-gray-700 mb-1">
+                Currency *
+              </label>
+              <input
+                type="text"
+                id="currency"
+                value={formData.currency}
+                onChange={(e) => handleChange('currency', e.target.value.toUpperCase())}
+                className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                  errors.currency ? 'border-red-300' : 'border-gray-300'
+                }`}
+                placeholder="e.g., RWF"
+              />
+              {errors.currency && <p className="mt-1 text-sm text-red-600">{errors.currency}</p>}
+            </div>
+          </>
+        )}
 
-        {/* Flag */}
+        {/* Flag - Always editable */}
         <div>
           <label htmlFor="flag" className="block text-sm font-medium text-gray-700 mb-1">
             Flag *
@@ -215,7 +233,7 @@ const CountryModal = ({ isOpen, onClose, onSubmit, country, isLoading = false })
           {errors.flag && <p className="mt-1 text-sm text-red-600">{errors.flag}</p>}
         </div>
 
-        {/* Status */}
+        {/* Status - Always editable */}
         <div>
           <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
             Status

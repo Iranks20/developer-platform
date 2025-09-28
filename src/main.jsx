@@ -6,17 +6,7 @@ import App from './App.jsx'
 import './index.css'
 
 const startApp = async () => {
-  if (import.meta.env.DEV) {
-    try {
-      const { worker } = await import('./mock/browser')
-      await worker.start({
-        onUnhandledRequest: 'bypass',
-      })
-      console.log('MSW worker started successfully')
-    } catch (error) {
-      console.error('Failed to start MSW worker:', error)
-    }
-  }
+  // MSW removed for production
 
   const queryClient = new QueryClient({
     defaultOptions: {

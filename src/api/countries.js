@@ -1,17 +1,30 @@
-const API_BASE = 'https://openapi.qa.gwiza.co';
+import { API_CONFIG } from '../config/environment'
+
+const API_BASE = API_CONFIG.BASE_URL;
+
+const getAuthHeaders = () => {
+  const user = JSON.parse(localStorage.getItem('portal_user') || '{}');
+  if (user.token) {
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${user.token}`
+    };
+  }
+  return {
+    'Content-Type': 'application/json'
+  };
+};
 
 const countriesApi = {
   getAll: async (userAccessLevel) => {
     try {
       const endpoint = userAccessLevel === 2 
-        ? `${API_BASE}/appsettings/countries`
-        : `${API_BASE}/appsettings/countries/active`;
+        ? `${API_BASE}/opcos`
+        : `${API_BASE}/opcos/active`;
       
       const response = await fetch(endpoint, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
       });
 
       if (!response.ok) {
@@ -24,9 +37,9 @@ const countriesApi = {
         return data.data.map(country => ({
           id: country.country_id,
           name: country.name,
-          alpha2Code: country.alpha2Code,
-          callingCode: country.callingCode,
-          alpha3Code: country.alpha3Code,
+          alpha2Code: country.alpha2_code,
+          callingCode: country.calling_code,
+          alpha3_code: country.alpha3_code,
           flag: country.flag,
           currency: country.currency,
           status: country.country_status
@@ -43,7 +56,7 @@ const countriesApi = {
           name: "Rwanda",
           alpha2Code: "RW",
           callingCode: "250",
-          alpha3Code: "RWA",
+          alpha3_code: "RWA",
           flag: "rwanda",
           currency: "RWF",
           status: "Active"
@@ -53,7 +66,7 @@ const countriesApi = {
           name: "Kenya",
           alpha2Code: "KE",
           callingCode: "254",
-          alpha3Code: "KEN",
+          alpha3_code: "KEN",
           flag: "kenya",
           currency: "KES",
           status: "Inactive"
@@ -64,21 +77,85 @@ const countriesApi = {
     }
   },
 
+  getOne: async (countryId) => {
+    try {
+      const response = await fetch(`${API_BASE}/opcos/${countryId}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success && data.data) {
+        return {
+          id: data.data.country_id,
+          name: data.data.name,
+          alpha2Code: data.data.alpha2_code,
+          callingCode: data.data.calling_code,
+          alpha3_code: data.data.alpha3_code,
+          flag: data.data.flag,
+          currency: data.data.currency,
+          status: data.data.country_status
+        };
+      }
+      
+      throw new Error(data.resp_msg || 'Failed to fetch country');
+    } catch (error) {
+      console.error('Error fetching country:', error);
+      throw error;
+    }
+  },
+
+  getCountryDetails: async (countryId) => {
+    try {
+      const response = await fetch(`${API_BASE}/opcos/${countryId}`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success && data.data) {
+        return {
+          id: data.data.country_id,
+          name: data.data.name,
+          alpha2Code: data.data.alpha2_code,
+          callingCode: data.data.calling_code,
+          alpha3_code: data.data.alpha3_code,
+          flag: data.data.flag,
+          currency: data.data.currency,
+          status: data.data.country_status
+        };
+      }
+      
+      throw new Error(data.resp_msg || 'Failed to fetch country details');
+    } catch (error) {
+      console.error('Error fetching country details:', error);
+      throw error;
+    }
+  },
+
   create: async (countryData) => {
     try {
-      const response = await fetch(`${API_BASE}/appsettings/countries`, {
+      const response = await fetch(`${API_BASE}/opcos`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           name: countryData.name,
-          alpha2Code: countryData.alpha2Code,
-          callingCode: countryData.callingCode,
-          alpha3Code: countryData.alpha3Code,
+          alpha2_code: countryData.alpha2Code,
+          calling_code: countryData.callingCode,
+          alpha3_code: countryData.alpha3Code,
           flag: countryData.flag,
           currency: countryData.currency,
-          country_status: countryData.status
+          country_status: countryData.status.toLowerCase()
         }),
       });
 
@@ -92,9 +169,9 @@ const countriesApi = {
         return {
           id: data.data.country_id,
           name: data.data.name,
-          alpha2Code: data.data.alpha2Code,
-          callingCode: data.data.callingCode,
-          alpha3Code: data.data.alpha3Code,
+          alpha2Code: data.data.alpha2_code,
+          callingCode: data.data.calling_code,
+          alpha3_code: data.data.alpha3_code,
           flag: data.data.flag,
           currency: data.data.currency,
           status: data.data.country_status
@@ -110,19 +187,12 @@ const countriesApi = {
 
   update: async (countryId, countryData) => {
     try {
-      const response = await fetch(`${API_BASE}/appsettings/countries/${countryId}`, {
+      const response = await fetch(`${API_BASE}/opcos/${countryId}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
-          name: countryData.name,
-          alpha2Code: countryData.alpha2Code,
-          callingCode: countryData.callingCode,
-          alpha3Code: countryData.alpha3Code,
           flag: countryData.flag,
-          currency: countryData.currency,
-          country_status: countryData.status
+          country_status: countryData.status.toLowerCase()
         }),
       });
 
@@ -136,9 +206,9 @@ const countriesApi = {
         return {
           id: data.data.country_id,
           name: data.data.name,
-          alpha2Code: data.data.alpha2Code,
-          callingCode: data.data.callingCode,
-          alpha3Code: data.data.alpha3Code,
+          alpha2Code: data.data.alpha2_code,
+          callingCode: data.data.calling_code,
+          alpha3_code: data.data.alpha3_code,
           flag: data.data.flag,
           currency: data.data.currency,
           status: data.data.country_status
@@ -154,11 +224,9 @@ const countriesApi = {
 
   delete: async (countryId) => {
     try {
-      const response = await fetch(`${API_BASE}/appsettings/countries/${countryId}`, {
+      const response = await fetch(`${API_BASE}/opcos/${countryId}`, {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getAuthHeaders(),
       });
 
       if (!response.ok) {

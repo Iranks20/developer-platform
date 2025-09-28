@@ -1,10 +1,10 @@
 import { GOOGLE_CONFIG, GOOGLE_BUTTON_CONFIG } from '../config/google'
-import { TEST_CREDENTIALS } from '../config/testCredentials'
+import { FEATURE_FLAGS } from '../config/environment'
 
 class GoogleAuthService {
   constructor() {
     this.isInitialized = false
-    this.clientId = TEST_CREDENTIALS.GOOGLE_CLIENT_ID
+    this.clientId = GOOGLE_CONFIG.clientId
   }
 
   async initialize() {

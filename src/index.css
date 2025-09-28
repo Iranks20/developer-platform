@@ -8,17 +8,17 @@
   }
   
   body {
-    font-family: 'Public Sans Variable', 'Barlow', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+    font-family: 'Poppins', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    color: #1C252E;
-    background-color: #FCFDFD;
+    color: #04304B;
+    background-color: #FAFBFC;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Barlow', 'Public Sans Variable', sans-serif;
+    font-family: 'Poppins', system-ui, sans-serif;
     font-weight: 600;
-    color: #1C252E;
+    color: #04304B;
   }
 
   h1 {
@@ -50,11 +50,11 @@
 
 @layer components {
   .btn-primary {
-    @apply bg-primary-600 hover:bg-primary-700 text-white font-medium py-3 px-6 rounded-default transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 hover:shadow-button-hover;
+    @apply bg-primary-500 hover:bg-primary-600 text-white font-medium py-3 px-6 rounded-default transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 hover:shadow-button-hover;
   }
   
   .btn-secondary {
-    @apply bg-white hover:bg-gray-50 text-gray-700 font-medium py-3 px-6 rounded-default border border-gray-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 hover:shadow-button-hover;
+    @apply bg-surface hover:bg-surfaceLight text-textPrimary font-medium py-3 px-6 rounded-default border border-border transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 hover:shadow-button-hover;
   }
   
   .btn-danger {
@@ -62,23 +62,23 @@
   }
 
   .btn-outline {
-    @apply bg-transparent hover:bg-primary-50 text-primary-600 font-medium py-3 px-6 rounded-default border border-primary-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+    @apply bg-transparent hover:bg-primary-50 text-primary-500 font-medium py-3 px-6 rounded-default border border-primary-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
   }
   
   .card {
-    @apply bg-white rounded-card shadow-card border border-gray-200 p-6 hover:shadow-card-hover transition-shadow duration-200;
+    @apply bg-surface rounded-card shadow-card border border-border p-6 hover:shadow-card-hover transition-shadow duration-200;
   }
 
   .card-elevated {
-    @apply bg-white rounded-card shadow-lg border border-gray-200 p-8;
+    @apply bg-surface rounded-card shadow-lg border border-border p-8;
   }
   
   .input-field {
-    @apply w-full px-4 py-3 border border-gray-300 rounded-default focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 text-gray-800 placeholder-gray-500;
+    @apply w-full px-4 py-3 border border-inputBorder rounded-default focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 text-textPrimary placeholder-gray-500;
   }
 
   .input-field:focus {
-    @apply border-primary-500;
+    @apply border-inputFocus;
   }
   
   .status-badge {
@@ -110,15 +110,15 @@
   }
 
   .gradient-primary {
-    @apply bg-gradient-to-r from-primary-500 to-primary-700;
+    @apply bg-gradient-to-r from-primary-500 to-primary-600;
   }
 
   .gradient-secondary {
-    @apply bg-gradient-to-r from-secondary-500 to-secondary-700;
+    @apply bg-gradient-to-r from-secondary-500 to-secondary-600;
   }
 
   .text-gradient {
-    @apply bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-primary-500 to-secondary-500 bg-clip-text text-transparent;
   }
 
   .glass-effect {
@@ -130,7 +130,7 @@
   }
 
   .section-title {
-    @apply text-3xl font-bold text-gray-800 mb-2;
+    @apply text-3xl font-bold text-textPrimary mb-2;
   }
 
   .section-subtitle {
@@ -138,11 +138,11 @@
   }
 
   .metric-card {
-    @apply bg-white rounded-card shadow-card border border-gray-200 p-6 hover:shadow-card-hover transition-all duration-200;
+    @apply bg-surface rounded-card shadow-card border border-border p-6 hover:shadow-card-hover transition-all duration-200;
   }
 
   .metric-value {
-    @apply text-3xl font-bold text-gray-800;
+    @apply text-3xl font-bold text-textPrimary;
   }
 
   .metric-label {
@@ -162,19 +162,19 @@
   }
 
   .nav-link {
-    @apply flex items-center px-4 py-3 text-gray-600 hover:text-primary-600 hover:bg-primary-50 rounded-default transition-all duration-200 font-medium;
+    @apply flex items-center px-4 py-3 text-gray-600 hover:text-primary-500 hover:bg-primary-50 rounded-default transition-all duration-200 font-medium;
   }
 
   .nav-link.active {
-    @apply text-primary-600 bg-primary-50 border-r-2 border-primary-600;
+    @apply text-primary-500 bg-primary-50 border-r-2 border-primary-500;
   }
 
   .tab-button {
-    @apply px-6 py-3 text-sm font-medium text-gray-600 hover:text-primary-600 border-b-2 border-transparent hover:border-gray-300 transition-all duration-200;
+    @apply px-6 py-3 text-sm font-medium text-gray-600 hover:text-primary-500 border-b-2 border-transparent hover:border-gray-300 transition-all duration-200;
   }
 
   .tab-button.active {
-    @apply text-primary-600 border-primary-600;
+    @apply text-primary-500 border-primary-500;
   }
 
   .form-group {
@@ -182,7 +182,7 @@
   }
 
   .form-label {
-    @apply block text-sm font-medium text-gray-700;
+    @apply block text-sm font-medium text-textPrimary;
   }
 
   .form-error {
@@ -190,11 +190,11 @@
   }
 
   .form-help {
-    @apply text-sm text-gray-500 mt-1;
+    @apply text-sm text-gray-600 mt-1;
   }
 
   .loading-spinner {
-    @apply animate-spin rounded-full border-2 border-gray-300 border-t-primary-600;
+    @apply animate-spin rounded-full border-2 border-gray-300 border-t-primary-500;
   }
 
   .fade-in {
@@ -225,5 +225,33 @@
       opacity: 1;
       transform: translateY(0);
     }
+  }
+
+  .table-enhanced {
+    @apply border border-gray-300;
+  }
+
+  .table-enhanced thead {
+    @apply bg-gray-100;
+  }
+
+  .table-enhanced th {
+    @apply border-b border-gray-300 font-bold text-gray-900;
+  }
+
+  .table-enhanced tbody tr {
+    @apply border-b border-gray-300;
+  }
+
+  .table-enhanced tbody tr:hover {
+    @apply bg-gray-50;
+  }
+
+  .text-enhanced {
+    @apply text-textPrimary;
+  }
+
+  .text-secondary-enhanced {
+    @apply text-textSecondary;
   }
 }

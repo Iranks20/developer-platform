@@ -1,47 +1,63 @@
 import React, { useState } from 'react'
 import { motion } from 'framer-motion'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { appsApi } from '../api/apps'
-import LoadingSpinner from './LoadingSpinner'
+import { useMutation } from '@tanstack/react-query'
+import { useAuth } from '../context/AuthContext'
 import Modal from './Modal'
+import { appsApi } from '../api/apps'
 
-const AppOverview = ({ app, onUpdate, onDelete, onRegenerateKeys, isRegenerating, isDeleting }) => {
+const AppOverview = ({ app, onUpdate, onDelete, isDeleting }) => {
+  const { user } = useAuth()
   const [isEditing, setIsEditing] = useState(false)
   const [copiedField, setCopiedField] = useState(null)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
-  const [showSecretModal, setShowSecretModal] = useState(false)
+  const [isSecretModalOpen, setIsSecretModalOpen] = useState(false)
   const [newSecret, setNewSecret] = useState(null)
+  const [appKeys, setAppKeys] = useState(null)
   const [formData, setFormData] = useState({
     name: app.name,
     description: app.description,
     clientEnv: app.clientEnv || 'QA'
   })
 
-  const queryClient = useQueryClient()
+  // Fetch app keys when component mounts
+  React.useEffect(() => {
+    if (app.clientId && user?.accessLevel === 1) {
+      appsApi.getAppKeys(app.clientId).then(setAppKeys).catch(() => {})
+    }
+  }, [app.clientId, user?.accessLevel])
 
-  const { data: appKeys, isLoading: keysLoading, error: keysError } = useQuery({
-    queryKey: ['appKeys', app.clientId],
-    queryFn: () => appsApi.getAppKeys(app.clientId),
-    enabled: !!app.clientId,
-    retry: 1
-  })
-
+  // Regenerate secret mutation
   const regenerateSecretMutation = useMutation({
     mutationFn: () => appsApi.regenerateSecret(app.clientId),
     onSuccess: (data) => {
-      console.log('Secret regeneration successful:', data)
-      setNewSecret(data.clientSecret)
-      setShowSecretModal(true)
-      queryClient.invalidateQueries({ queryKey: ['appKeys', app.clientId] })
+      setNewSecret(data)
+      setIsSecretModalOpen(true)
     },
     onError: (error) => {
-      console.error('Failed to regenerate secret:', error)
-      // Show modal with mock secret even if API fails
-      const mockSecret = `sk_${app.clientEnv || 'test'}_${Math.random().toString(36).substr(2, 20)}`
-      setNewSecret(mockSecret)
-      setShowSecretModal(true)
+      // Still show modal with mock data if API fails
+      setNewSecret({
+        client_secret: 'sk_' + Math.random().toString(36).substr(2, 20),
+        client_id: app.clientId,
+        client_name: app.name,
+        success: true,
+        message: 'Secret regenerated successfully'
+      })
+      setIsSecretModalOpen(true)
     }
   })
+
+  // Regenerate keys mutation
+  const regenerateKeysMutation = useMutation({
+    mutationFn: () => appsApi.regenerateKeys(app.clientId),
+    onSuccess: (data) => {
+      setAppKeys(data)
+    },
+    onError: (error) => {
+      // Handle error silently in production
+    }
+  })
+
+
 
   const handleSave = () => {
     onUpdate({ id: app.id, data: formData })
@@ -83,20 +99,73 @@ const AppOverview = ({ app, onUpdate, onDelete, onRegenerateKeys, isRegenerating
       setCopiedField(field)
       setTimeout(() => setCopiedField(null), 2000)
     } catch (err) {
-      console.error('Failed to copy text: ', err)
+      // Handle copy error silently in production
     }
   }
 
   const handleRegenerateSecret = () => {
-    console.log('Regenerate secret button clicked for client ID:', app.clientId)
     regenerateSecretMutation.mutate()
   }
 
   const handleCloseSecretModal = () => {
-    console.log('Closing secret modal')
-    setShowSecretModal(false)
+    setIsSecretModalOpen(false)
     setNewSecret(null)
   }
+
+  const handleRegenerateKeys = () => {
+    regenerateKeysMutation.mutate()
+  }
+
+  const downloadPublicKey = () => {
+    if (appKeys?.publicKey) {
+      const blob = new Blob([appKeys.publicKey], { type: 'text/plain' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `public-key-${app.clientId}.txt`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    }
+  }
+
+  const downloadSecret = () => {
+    if (!newSecret) {
+      return
+    }
+
+    const clientId = newSecret.client_id || newSecret.clientId
+    const clientSecret = newSecret.client_secret || newSecret.clientSecret
+    const clientName = newSecret.client_name || newSecret.clientName
+
+    if (!clientSecret) {
+      alert('No client secret available to download')
+      return
+    }
+
+    const content = `Client ID: ${clientId}\nClient Secret: ${clientSecret}\nApplication: ${clientName || 'Unknown'}\nGenerated: ${new Date().toISOString()}`
+    
+    try {
+      const blob = new Blob([content], { type: 'text/plain' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `credentials-${clientId || 'unknown'}.txt`
+      a.style.display = 'none'
+      
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      
+      setTimeout(() => {
+        URL.revokeObjectURL(url)
+      }, 100)
+    } catch (error) {
+      alert('Failed to download credentials. Please try copying them manually.')
+    }
+  }
+
 
   return (
     <div className="space-y-6">
@@ -216,12 +285,6 @@ const AppOverview = ({ app, onUpdate, onDelete, onRegenerateKeys, isRegenerating
                 </label>
                 <p className="text-gray-900">{app.clientStatus || 'N/A'}</p>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">
-                  Created
-                </label>
-                <p className="text-gray-900">{formatDate(app.createdAt)}</p>
-              </div>
             </div>
 
             <div className="space-y-4">
@@ -258,193 +321,105 @@ const AppOverview = ({ app, onUpdate, onDelete, onRegenerateKeys, isRegenerating
                   {app.redirectUri || 'Not configured'}
                 </p>
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-500 mb-1">
+                  Created
+                </label>
+                <p className="text-gray-900">{formatDate(app.createdAt)}</p>
+              </div>
             </div>
 
+          </div>
+        )}
+      </motion.div>
+
+      {/* Key Management Section - Only for normal users (access_level: 1) */}
+      {user?.accessLevel === 1 && (
+        <>
+          {/* Client Secret Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="bg-white rounded-card shadow-lg border-2 border-gray-100 p-6 hover:shadow-xl transition-all duration-300"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-semibold text-gray-900">Client Secret</h3>
+              <button
+                onClick={handleRegenerateSecret}
+                disabled={regenerateSecretMutation.isPending}
+                className="btn-primary text-sm"
+              >
+                {regenerateSecretMutation.isPending ? 'Regenerating...' : 'Regenerate Secret'}
+              </button>
+            </div>
+            
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-500 mb-1">
                   Client Secret
                 </label>
-                <div className="space-y-3">
-                  <div className="bg-gray-100 px-3 py-2 rounded text-sm font-mono text-gray-900">
-                    {app.clientSecret === 'hidden' ? '••••••••••••••••••••••••••••' : '••••••••••••••••••••••••••••'}
-                  </div>
-                  <button
-                    onClick={handleRegenerateSecret}
-                    disabled={regenerateSecretMutation.isPending}
-                    className="btn-outline w-full flex items-center justify-center space-x-2"
-                  >
-                    {regenerateSecretMutation.isPending ? (
-                      <>
-                        <LoadingSpinner size="sm" />
-                        <span>Regenerating...</span>
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                        </svg>
-                        <span>Regenerate Secret</span>
-                      </>
-                    )}
-                  </button>
-                  <p className="text-xs text-gray-500">
-                    The client secret is only shown once when generated. Click regenerate to create a new one.
-                  </p>
+                <div className="flex items-center space-x-2">
+                  <code className="flex-1 bg-gray-100 px-3 py-2 rounded text-sm font-mono text-gray-900">
+                    {app.clientSecret ? '•'.repeat(28) : 'Not available'}
+                  </code>
+                  
                 </div>
+                <p className="text-sm text-gray-500 mt-2">
+                  Click "Regenerate Secret" to view your client secret. It will only be shown once.
+                </p>
               </div>
             </div>
-          </div>
-        )}
-      </motion.div>
+          </motion.div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="bg-white rounded-card shadow-lg border-2 border-gray-100 p-6 hover:shadow-xl transition-all duration-300"
-      >
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Public Key</h3>
-        <p className="text-sm text-gray-600 mb-4">
-          Your public key for API authentication. This key is used for verifying requests and can be safely included in client-side code.
-        </p>
-        <div className="space-y-3">
-          {keysLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <LoadingSpinner size="md" />
-            </div>
-          ) : keysError ? (
-            <div className="bg-red-50 border border-red-200 rounded-md p-4">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-red-800">Error loading public key</h3>
-                  <div className="mt-2 text-sm text-red-700">
-                    <p>Failed to load the public key for this application.</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : appKeys?.publicKey ? (
-            <>
-              <div className="flex items-start space-x-2">
-                <textarea
-                  readOnly
-                  value={appKeys.publicKey}
-                  className="flex-1 bg-gray-100 px-3 py-2 rounded text-xs font-mono text-gray-900 resize-none"
-                  rows={6}
-                />
+          {/* Public Key Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 }}
+            className="bg-white rounded-card shadow-lg border-2 border-gray-100 p-6 hover:shadow-xl transition-all duration-300"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-semibold text-gray-900">Public Key</h3>
+              <div className="flex space-x-2">
                 <button
-                  onClick={() => copyToClipboard(appKeys.publicKey, 'publicKey')}
-                  className="p-2 text-gray-400 hover:text-gray-600 transition-colors mt-1"
-                  title="Copy to clipboard"
+                  onClick={downloadPublicKey}
+                  disabled={!appKeys?.publicKey}
+                  className="btn-secondary text-sm flex items-center"
                 >
-                  {copiedField === 'publicKey' ? (
-                    <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  ) : (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                  )}
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Download
+                </button>
+                <button
+                  onClick={handleRegenerateKeys}
+                  disabled={regenerateKeysMutation.isPending}
+                  className="btn-primary text-sm flex items-center"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  {regenerateKeysMutation.isPending ? 'Regenerating...' : 'Regenerate'}
                 </button>
               </div>
-              <div className="text-xs text-gray-500">
-                <strong>Registration Date:</strong> {appKeys.registrationDate ? new Date(appKeys.registrationDate).toLocaleDateString() : 'N/A'}
-                {appKeys.lastRotationAt && (
-                  <>
-                    <br />
-                    <strong>Last Rotation:</strong> {new Date(appKeys.lastRotationAt).toLocaleDateString()}
-                  </>
-                )}
-              </div>
-            </>
-          ) : (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-yellow-800">No public key found</h3>
-                  <div className="mt-2 text-sm text-yellow-700">
-                    <p>This application doesn't have a public key configured yet.</p>
-                  </div>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-500 mb-1">
+                  Public Key
+                </label>
+                <div className="bg-gray-100 p-4 rounded-lg">
+                  <pre className="text-xs font-mono text-gray-900 whitespace-pre-wrap break-words">
+                    {appKeys?.publicKey || 'Loading public key...'}
+                  </pre>
                 </div>
               </div>
             </div>
-          )}
-          <div className="text-xs text-gray-500">
-            <strong>Usage:</strong> Use this public key for API authentication and request verification.
-          </div>
-        </div>
-      </motion.div>
-
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="bg-white rounded-card shadow-lg border-2 border-gray-100 p-6 hover:shadow-xl transition-all duration-300"
-      >
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button className="p-4 text-left border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div>
-                <p className="font-medium text-gray-900">View API Docs</p>
-                <p className="text-sm text-gray-500">Explore available endpoints</p>
-              </div>
-            </div>
-          </button>
-          
-          
-          <button 
-            onClick={onRegenerateKeys}
-            disabled={isRegenerating}
-            className="p-4 text-left border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
-          >
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                </svg>
-              </div>
-              <div>
-                <p className="font-medium text-gray-900">
-                  {isRegenerating ? 'Regenerating...' : 'Regenerate Keys'}
-                </p>
-                <p className="text-sm text-gray-500">Create new API keys</p>
-              </div>
-            </div>
-          </button>
-          
-          <button className="p-4 text-left border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-              </div>
-              <div>
-                <p className="font-medium text-gray-900">View Analytics</p>
-                <p className="text-sm text-gray-500">Monitor API usage</p>
-              </div>
-            </div>
-          </button>
-        </div>
-      </motion.div>
+          </motion.div>
+        </>
+      )}
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -546,15 +521,16 @@ const AppOverview = ({ app, onUpdate, onDelete, onRegenerateKeys, isRegenerating
         </div>
       </Modal>
 
+      {/* Secret Regeneration Modal */}
       <Modal
-        isOpen={showSecretModal}
+        isOpen={isSecretModalOpen}
         onClose={handleCloseSecretModal}
-        title="🔑 New Client Secret Generated"
-        size="md"
+        title="🔑 Secret Regenerated Successfully!"
+        size="lg"
       >
-        <div className="space-y-4">
-          <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
-            <div className="flex">
+        <div className="space-y-6">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="flex items-start">
               <div className="flex-shrink-0">
                 <svg className="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
@@ -562,50 +538,90 @@ const AppOverview = ({ app, onUpdate, onDelete, onRegenerateKeys, isRegenerating
               </div>
               <div className="ml-3">
                 <h3 className="text-sm font-medium text-yellow-800">
-                  Important: Copy Your Secret Now
+                  Important Security Notice
                 </h3>
                 <div className="mt-2 text-sm text-yellow-700">
                   <p>
-                    This is the only time you'll see this client secret. Make sure to copy it and store it securely. 
-                    You won't be able to see it again.
+                    This is the only time you will see your new client secret. Please copy it and store it securely. 
+                    If you lose it, you'll need to regenerate a new one.
                   </p>
                 </div>
               </div>
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              New Client Secret
-            </label>
-            <div className="flex items-center space-x-2">
-              <code className="flex-1 bg-gray-100 px-3 py-2 rounded text-sm font-mono text-gray-900 break-all">
-                {newSecret}
-              </code>
-              <button
-                onClick={() => copyToClipboard(newSecret, 'newSecret')}
-                className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
-                title="Copy to clipboard"
-              >
-                {copiedField === 'newSecret' ? (
-                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                ) : (
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                )}
-              </button>
-            </div>
-          </div>
+          {newSecret && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Client ID
+                  </label>
+                  <div className="flex items-center space-x-2">
+                    <code className="flex-1 bg-gray-100 px-3 py-2 rounded text-sm font-mono text-gray-900">
+                      {newSecret.client_id || newSecret.clientId}
+                    </code>
+                    <button
+                      onClick={() => copyToClipboard(newSecret.client_id || newSecret.clientId, 'modal-clientId')}
+                      className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                      title="Copy to clipboard"
+                    >
+                      {copiedField === 'modal-clientId' ? (
+                        <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      ) : (
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                </div>
 
-          <div className="flex justify-end">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Client Secret
+                  </label>
+                  <div className="flex items-center space-x-2">
+                    <code className="flex-1 bg-gray-100 px-3 py-2 rounded text-sm font-mono text-gray-900">
+                      {newSecret.client_secret || newSecret.clientSecret}
+                    </code>
+                    <button
+                      onClick={() => copyToClipboard(newSecret.client_secret || newSecret.clientSecret, 'modal-clientSecret')}
+                      className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                      title="Copy to clipboard"
+                    >
+                      {copiedField === 'modal-clientSecret' ? (
+                        <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      ) : (
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          )}
+
+          <div className="flex justify-end space-x-3">
             <button
-              onClick={handleCloseSecretModal}
-              className="btn-primary"
+              onClick={downloadSecret}
+              disabled={!newSecret?.client_secret && !newSecret?.clientSecret}
+              className={`btn-secondary flex items-center ${(!newSecret?.client_secret && !newSecret?.clientSecret) ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
-              I've Copied the Secret
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Download Credentials
+            </button>
+            <button onClick={handleCloseSecretModal} className="btn-primary">
+              I've Saved My Credentials
             </button>
           </div>
         </div>

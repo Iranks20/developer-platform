@@ -1,80 +1,38 @@
-const API_BASE = 'https://openapi.qa.gwiza.co'
+import { API_CONFIG } from '../config/environment'
 
-// Fallback in-memory store for when MSW is not working
-let fallbackApps = [
-  {
-    id: '1',
-    name: 'E-commerce App',
-    description: 'Main e-commerce application for online store',
-    status: 'live',
-    createdAt: '2024-01-15T10:30:00Z',
-    clientId: 'app_1234567890abcdef',
-    clientSecret: 'sk_live_abcdef1234567890',
-    products: [
-      { id: 'prod_1', name: 'Payment API', status: 'active' },
-      { id: 'prod_2', name: 'User Management', status: 'active' },
-      { id: 'prod_3', name: 'Analytics API', status: 'pending' }
-    ]
-  },
-  {
-    id: '2',
-    name: 'Mobile App',
-    description: 'Mobile application for iOS and Android',
-    status: 'test',
-    createdAt: '2024-02-20T14:15:00Z',
-    clientId: 'app_0987654321fedcba',
-    clientSecret: 'sk_test_fedcba0987654321',
-    products: [
-      { id: 'prod_4', name: 'Push Notifications', status: 'active' },
-      { id: 'prod_5', name: 'Location Services', status: 'disabled' }
-    ]
-  },
-  {
-    id: '3',
-    name: 'Analytics Dashboard',
-    description: 'Internal analytics and reporting dashboard',
-    status: 'live',
-    createdAt: '2024-03-10T09:45:00Z',
-    clientId: 'app_abcdef1234567890',
-    clientSecret: 'sk_live_1234567890abcdef',
-    products: [
-      { id: 'prod_6', name: 'Data Export API', status: 'active' },
-      { id: 'prod_7', name: 'Real-time Metrics', status: 'active' },
-      { id: 'prod_8', name: 'Webhook Management', status: 'pending' }
-    ]
-  },
-  {
-    id: '4',
-    name: 'API Gateway',
-    description: 'Centralized API gateway for microservices',
-    status: 'test',
-    createdAt: '2024-03-25T16:20:00Z',
-    clientId: 'app_gateway123456789',
-    clientSecret: 'sk_test_gateway123456789',
-    products: [
-      { id: 'prod_9', name: 'Rate Limiting', status: 'active' },
-      { id: 'prod_10', name: 'Authentication', status: 'active' },
-      { id: 'prod_11', name: 'Monitoring', status: 'disabled' }
-    ]
+const API_BASE = API_CONFIG.BASE_URL
+
+const getAuthHeaders = () => {
+  const user = JSON.parse(localStorage.getItem('portal_user') || '{}');
+  if (user.token) {
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${user.token}`
+    };
   }
-]
+  return {
+    'Content-Type': 'application/json'
+  };
+};
 
-let nextId = 5
-
-const generateId = () => (nextId++).toString()
-const generateClientId = () => `app_${Math.random().toString(36).substr(2, 16)}`
-const generateClientSecret = (status) => `sk_${status}_${Math.random().toString(36).substr(2, 20)}`
+// Production API - no fallback data
 
 export const appsApi = {
   getAll: async (userId) => {
     try {
-      console.log('Attempting to fetch apps from API for user:', userId)
-      const response = await fetch(`${API_BASE}/auth/oauth2/client/byuser/${userId}`)
+      
+      let endpoint = `${API_BASE}/auth/oauth2/client/byuser/${userId}`
+      if (userId === 'admin-all-users') {
+        endpoint = `${API_BASE}/auth/oauth2/client`
+      }
+      
+      const response = await fetch(endpoint, {
+        headers: getAuthHeaders()
+      })
       if (!response.ok) {
-        throw new Error('Failed to fetch applications')
+        throw new Error(`Failed to fetch applications: ${response.status} ${response.statusText}`)
       }
       const data = await response.json()
-      console.log('API response:', data)
       
       if (data.success && data.data) {
         return data.data.map(app => ({
@@ -86,15 +44,49 @@ export const appsApi = {
           clientEnv: app.client_env,
           createdAt: app.created_at,
           clientId: app.client_id,
-          clientSecret: 'hidden'
+          clientSecret: 'hidden',
+          userAccountId: app.user_account_id || 'unknown',
+          redirectUri: app.redirect_uri,
+          public: app.public
         }))
       }
       
       return []
     } catch (error) {
-      console.log('API not available, using fallback data:', error.message)
-      console.log('Fallback apps:', fallbackApps)
-      return fallbackApps
+      throw error
+    }
+  },
+
+  getAllAdmin: async () => {
+    try {
+      const response = await fetch(`${API_BASE}/auth/oauth2/client`, {
+        headers: getAuthHeaders()
+      })
+      if (!response.ok) {
+        throw new Error(`Failed to fetch all applications for admin: ${response.status} ${response.statusText}`)
+      }
+      const data = await response.json()
+
+      if (data.success && data.data) {
+        return data.data.map(app => ({
+          id: app.client_id,
+          name: app.client_name,
+          description: app.client_description || 'No description provided',
+          status: app.client_env === 'PDN' ? 'live' : 'test',
+          clientStatus: app.client_status,
+          clientEnv: app.client_env,
+          createdAt: app.created_at,
+          clientId: app.client_id,
+          clientSecret: 'hidden',
+          userAccountId: app.user_account_id || 'unknown',
+          redirectUri: app.redirect_uri,
+          public: app.public
+        }))
+      }
+
+      return []
+    } catch (error) {
+      throw error
     }
   },
 
@@ -106,24 +98,17 @@ export const appsApi = {
       }
       return response.json()
     } catch (error) {
-      console.log('MSW not available, using fallback data')
-      const app = fallbackApps.find(a => a.id === id)
-      if (!app) {
-        throw new Error('Application not found')
-      }
-      return app
+      throw error
     }
   },
 
   getAppDetails: async (clientId) => {
     try {
-      console.log('Fetching app details for client ID:', clientId)
       const response = await fetch(`${API_BASE}/auth/oauth2/client/${clientId}`)
       if (!response.ok) {
         throw new Error('Failed to fetch application details')
       }
       const data = await response.json()
-      console.log('App details response:', data)
       
       if (data.success && data.data) {
         return {
@@ -144,37 +129,17 @@ export const appsApi = {
       
       throw new Error('Invalid response format')
     } catch (error) {
-      console.log('API not available, using fallback data for app details:', error.message)
-      const app = fallbackApps.find(a => a.id === clientId || a.clientId === clientId)
-      if (!app) {
-        throw new Error('Application not found')
-      }
-      return {
-        id: app.id,
-        name: app.name,
-        description: app.description,
-        status: app.status,
-        createdAt: app.createdAt,
-        clientId: app.clientId,
-        clientSecret: app.clientSecret,
-        redirectUri: null,
-        public: false,
-        clientStatus: 'new',
-        clientEnv: app.status === 'live' ? 'PDN' : 'QA',
-        scopes: []
-      }
+      throw error
     }
   },
 
   getAppKeys: async (clientId) => {
     try {
-      console.log('Fetching app keys for client ID:', clientId)
       const response = await fetch(`${API_BASE}/auth/oauth2/client/appkey/${clientId}`)
       if (!response.ok) {
         throw new Error('Failed to fetch application keys')
       }
       const data = await response.json()
-      console.log('App keys response:', data)
       
       if (data.success && data.data && data.data.length > 0) {
         const keyData = data.data[0]
@@ -188,17 +153,7 @@ export const appsApi = {
       
       return null
     } catch (error) {
-      console.log('API not available, using fallback data for app keys:', error.message)
-      const app = fallbackApps.find(a => a.id === clientId || a.clientId === clientId)
-      if (!app) {
-        return null
-      }
-      return {
-        publicKey: `-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA${Math.random().toString(36).substr(2, 50)}\n-----END PUBLIC KEY-----`,
-        registrationDate: app.createdAt,
-        lastRotationAt: app.createdAt,
-        recordId: app.id
-      }
+      throw error
     }
   },
 
@@ -220,7 +175,6 @@ export const appsApi = {
         throw new Error('Failed to create application')
       }
       const data = await response.json()
-      console.log('Create app response:', data)
       
       if (data.success && data.data) {
         return {
@@ -238,7 +192,6 @@ export const appsApi = {
       
       throw new Error('Invalid response format')
     } catch (error) {
-      console.log('API not available, using fallback creation')
       const newApp = {
         id: generateId(),
         name: appData.name,
@@ -249,8 +202,7 @@ export const appsApi = {
         clientSecret: generateClientSecret('test'),
         products: []
       }
-      fallbackApps.push(newApp)
-      return newApp
+      throw error
     }
   },
 
@@ -268,13 +220,7 @@ export const appsApi = {
       }
       return response.json()
     } catch (error) {
-      console.log('MSW not available, using fallback update')
-      const index = fallbackApps.findIndex(a => a.id === id)
-      if (index === -1) {
-        throw new Error('Application not found')
-      }
-      fallbackApps[index] = { ...fallbackApps[index], ...appData }
-      return fallbackApps[index]
+      throw error
     }
   },
 
@@ -288,67 +234,70 @@ export const appsApi = {
       }
       return response.json()
     } catch (error) {
-      console.log('MSW not available, using fallback delete')
-      const index = fallbackApps.findIndex(a => a.id === id)
-      if (index === -1) {
-        throw new Error('Application not found')
-      }
-      fallbackApps.splice(index, 1)
-      return { success: true }
+      throw error
     }
   },
 
-  regenerateKeys: async (id) => {
+  regenerateKeys: async (clientId) => {
     try {
-      const response = await fetch(`${API_BASE}/apps/${id}/keys/regenerate`, {
+      const response = await fetch(`${API_BASE}/auth/oauth2/client/rotate-keys`, {
         method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          client_id: clientId,
+          reason: "operator requested"
+        }),
       })
       if (!response.ok) {
         throw new Error('Failed to regenerate keys')
       }
-      return response.json()
-    } catch (error) {
-      console.log('MSW not available, using fallback key regeneration')
-      const app = fallbackApps.find(a => a.id === id)
-      if (!app) {
-        throw new Error('Application not found')
-      }
-      app.clientSecret = generateClientSecret(app.status)
-      return { clientSecret: app.clientSecret }
-    }
-  },
-
-  regenerateSecret: async (clientId) => {
-    try {
-      console.log('Regenerating secret for client ID:', clientId)
-      const response = await fetch(`${API_BASE}/auth/oauth2/client/${clientId}/regenerate-secret`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
-      if (!response.ok) {
-        throw new Error('Failed to regenerate client secret')
-      }
       const data = await response.json()
-      console.log('Regenerate secret response:', data)
       
       if (data.success && data.data) {
         return {
-          clientSecret: data.data.client_secret
+          clientId: data.data.client_id,
+          publicKey: data.data.publicKeyPem,
+          success: data.success,
+          message: data.resp_msg
         }
       }
       
       throw new Error('Invalid response format')
     } catch (error) {
-      console.log('API not available, using fallback secret regeneration:', error.message)
-      const app = fallbackApps.find(a => a.id === clientId || a.clientId === clientId)
-      if (!app) {
-        throw new Error('Application not found')
+      throw error
+    }
+  },
+
+  regenerateSecret: async (clientId) => {
+    try {
+      const response = await fetch(`${API_BASE}/auth/oauth2/client/rotate-secret`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          client_id: clientId,
+          reason: "operator requested"
+        }),
+      })
+      if (!response.ok) {
+        throw new Error('Failed to regenerate client secret')
       }
-      const newSecret = generateClientSecret(app.status)
-      app.clientSecret = newSecret
-      return { clientSecret: newSecret }
+      const data = await response.json()
+      
+      if (data.success && data.data) {
+        return {
+          clientSecret: data.data.client_secret,
+          clientId: data.data.client_id,
+          clientName: data.data.client_name,
+          secretVersion: data.data.secret_version,
+          secretRotatedAt: data.data.secret_rotated_at,
+          success: data.success,
+          message: data.resp_msg
+        }
+      }
+      
+      throw new Error('Invalid response format')
+    } catch (error) {
+      throw error
     }
   },
 }
